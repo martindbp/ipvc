@@ -80,3 +80,5 @@ Note: commands not yet implemented are "commented" out
 * Export/import from/to git/mercurial
 * Permissions in metadata
 * Follow + store symlinks in metadata
+* Virtual repos (ipfs only, not on the filesystem)
+* A server with GUI
