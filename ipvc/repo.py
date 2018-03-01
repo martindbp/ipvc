@@ -3,15 +3,17 @@ import sys
 import shutil
 
 import ipfsapi
-from ipvc.common import CommonAPI
+from ipvc.common import CommonAPI, atomic
 
 class RepoAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @atomic
     def status(self):
         print('Nothing to see here...')
 
+    @atomic
     def init(self, force=False):
         # Create the new repository folder structure
         fs_workspace_root = self.get_workspace_root()
@@ -48,6 +50,7 @@ class RepoAPI(CommonAPI):
         if not self.quiet: print(f'Successfully created repository')
         return True
 
+    @atomic
     def mv(self, path1, path2):
         """ Move a repository from one path to another """
         if path2 is None:

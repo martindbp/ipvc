@@ -129,14 +129,14 @@ if __name__ == '__main__':
     diff_content_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@head')
 
     args = parser.parse_args()
-    args_dict = dict(args._get_kwargs())
-    args_dict.pop('command')
-    args_dict.pop('subcommand')
-    args_dict.pop('profile')
-    quiet = args_dict.pop('quiet')
-    verbose = args_dict.pop('verbose')
+    kwargs = dict(args._get_kwargs())
+    kwargs.pop('command')
+    kwargs.pop('subcommand')
+    kwargs.pop('profile')
+    quiet = kwargs.pop('quiet')
+    verbose = kwargs.pop('verbose')
     # Replace dashes with underscores in option names
-    args_dict = {key.replace('-', '_'): val for key, val in args_dict.items()}
+    kwargs = {key.replace('-', '_'): val for key, val in kwargs.items()}
 
     if args.command == 'help':
         print('Use the --help option for help')
@@ -145,9 +145,9 @@ if __name__ == '__main__':
     ipvc = IPVC(quiet=quiet, verbose=verbose)
     route = getattr(getattr(ipvc, args.command), args.subcommand)
     if args.profile:
-        cProfile.run('route(**args_dict)')
+        cProfile.run('route(**kwargs)')
     else:
         try:
-            route(**args_dict)
+            route(**kwargs)
         except RuntimeError:
             exit(1)

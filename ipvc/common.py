@@ -3,6 +3,7 @@ import io
 import sys
 import json
 import hashlib
+from functools import wraps
 from pathlib import Path
 
 import ipfsapi
@@ -102,6 +103,47 @@ def make_len(string, num):
     return string + ' '*(num-len(string))
 
 
+def atomic(api_method):
+    """ Wraps a method to make it atomic on IPFS, meaning the method will
+    operate on a copy of the real mfs ipvc folder and the resulting modified folder
+    will replace the original only when the method was executed successfully """
+
+    @wraps(api_method)
+    def _impl(self, *args, **kwargs):
+        if self._in_atomic_operation:
+            return api_method(self, *args, **kwargs)
+
+        self._in_atomic_operation = True
+        tmp_namespace = Path('/ipvc_tmp')
+        try:
+            self.ipfs.files_rm(tmp_namespace / 'ipvc', recursive=True)
+        except:
+            pass
+        self.ipfs.files_mkdir(tmp_namespace, parents=True)
+        old_namespace, self.namespace = self.namespace, tmp_namespace
+        try:
+            self.ipfs.files_cp(old_namespace / 'ipvc', tmp_namespace / 'ipvc')
+        except:
+            pass
+        try:
+            ret = api_method(self, *args, **kwargs)
+        except:
+            self.namespace = old_namespace
+            self._in_atomic_operation = False
+            raise
+
+        try:
+            self.ipfs.files_rm(old_namespace / 'ipvc', recursive=True)
+        except:
+            pass
+        self.ipfs.files_cp(tmp_namespace / 'ipvc', old_namespace / 'ipvc')
+        self.namespace = old_namespace
+        self._in_atomic_operation = False
+        return ret
+
+    return _impl
+
+
 class CommonAPI:
     def __init__(self, _ipfs, _fs_cwd, _namespace='/', quiet=False, verbose=False):
         self.ipfs = _ipfs
@@ -109,6 +151,7 @@ class CommonAPI:
         self.namespace = _namespace
         self.quiet = quiet
         self.verbose = verbose
+        self._in_atomic_operation = False
 
     def get_mfs_path(self, fs_workspace_root=None, branch=None, repo_info=None,
                      branch_info=None, ipvc_info=None):

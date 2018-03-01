@@ -74,7 +74,6 @@ Note: commands not yet implemented are "commented" out
 
 ## TODO
 * Merging/rebase
-* Atomic updates to repositories
 * Partial branch checkout 
 * Pip package
 * Encryption of data/commits?

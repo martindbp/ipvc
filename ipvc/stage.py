@@ -7,14 +7,14 @@ from pathlib import Path
 from datetime import datetime
 
 import ipfsapi
-from ipvc.common import CommonAPI, print_changes
+from ipvc.common import CommonAPI, print_changes, atomic
 
 
 class StageAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def get_relative_paths(self, fs_paths, fs_workspace_root):
+    def _get_relative_paths(self, fs_paths, fs_workspace_root):
         fs_paths = fs_paths if isinstance(fs_paths, list) else [fs_paths]
         for fs_path in fs_paths:
             fs_path = Path(os.path.abspath(fs_path))
@@ -26,6 +26,7 @@ class StageAPI(CommonAPI):
                     print(f'Path outside workspace {fs_path}', file=sys.stderr)
                 raise
 
+    @atomic
     def add(self, fs_paths=None):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
@@ -33,7 +34,7 @@ class StageAPI(CommonAPI):
         fs_workspace_root, branch = self.common()
         fs_paths = self.fs_cwd if fs_paths is None else fs_paths
         changes = []
-        for fs_path_relative in self.get_relative_paths(fs_paths, fs_workspace_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, fs_workspace_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'workspace', 'stage', fs_path_relative)
 
@@ -45,13 +46,14 @@ class StageAPI(CommonAPI):
                 print_changes(changes)
         return changes
 
+    @atomic
     def remove(self, fs_paths):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
         """
         fs_workspace_root, branch = self.common()
         changes = []
-        for fs_path_relative in self.get_relative_paths(fs_paths, fs_workspace_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, fs_workspace_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'head', 'stage', fs_path_relative)
 
@@ -63,6 +65,7 @@ class StageAPI(CommonAPI):
                 print_changes(changes)
         return changes
 
+    @atomic
     def status(self):
         """ Show diff between workspace and stage, and between stage and head """
         fs_workspace_root, branch = self.common()
@@ -88,6 +91,7 @@ class StageAPI(CommonAPI):
 
         return head_stage_changes, stage_workspace_changes
 
+    @atomic
     def commit(self, message):
         """ Create a new commit object, and point head to it """
         fs_workspace_root, branch = self.common()
@@ -120,10 +124,13 @@ class StageAPI(CommonAPI):
 
         return True
 
+    @atomic
     def uncommit(self):
         # What to do with workspace changes?
+        # Ask whether to overwrite or not?
         pass
 
+    @atomic
     def diff(self):
         """ Content diff from head to stage """
         fs_workspace_root, branch = self.common()

@@ -5,12 +5,13 @@ import webbrowser
 from pathlib import Path
 
 import ipfsapi
-from ipvc.common import CommonAPI, expand_ref, refpath_to_mfs, make_len
+from ipvc.common import CommonAPI, expand_ref, refpath_to_mfs, make_len, atomic
 
 class BranchAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
+    @atomic
     def status(self, name=False):
         fs_workspace_root, branch = self.common()
         active = self.ipfs.files_read(
@@ -18,6 +19,7 @@ class BranchAPI(CommonAPI):
         if name and not self.quiet: print(active)
         return active
 
+    @atomic
     def create(self, name, from_commit=None):
         fs_workspace_root, branch = self.common()
 
@@ -97,6 +99,7 @@ class BranchAPI(CommonAPI):
 
             os.utime(path, ns=(timestamp, timestamp))
 
+    @atomic
     def checkout(self, name, without_timestamps=False):
         """ Checks out a branch"""
         fs_workspace_root, _ = self.common()
@@ -117,6 +120,7 @@ class BranchAPI(CommonAPI):
         self._load_ref_into_workspace(
             fs_workspace_root, name, 'workspace', without_timestamps)
 
+    @atomic
     def history(self, show_ref=False):
         """ Shows the commit history for the current branch. Currently only shows
         the linear history on the first parents side"""
@@ -156,6 +160,7 @@ class BranchAPI(CommonAPI):
 
         return commits
 
+    @atomic
     def show(self, refpath):
         """ Opens a ref in the ipfs file browser """
         fs_workspace_root, branch = self.common()
