@@ -4,7 +4,7 @@ IPVC is a distributed version control system similar to git, but built on IPFS (
 
 ## Caveats
 * The project is purely experimental at this stage, with many missing features (see the TODO section)
-* Due to the public nature of ipfs data, IPVC might not be suitable for private repositories, unless it is hosted on a private network.
+* Due to the [public nature](https://github.com/ipfs/notes/issues/270) of ipfs data, IPVC might not be suitable for private repositories, unless it is hosted on a private network.
 * Due to the interaction with the IPFS daemon (and possibly Python), ipvc commands are quite slow, unlike snappy git commands
 
 ## Why IPFS?
