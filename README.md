@@ -4,14 +4,14 @@ IPVC is a distributed version control system similar to git, but built on IPFS (
 
 ## Caveats
 * The project is purely experimental at this stage, with many missing features (see the TODO section)
-* Due to the [public nature](https://github.com/ipfs/notes/issues/270) of ipfs data, IPVC might not be suitable for private repositories, unless it is hosted on a private network.
-* Due to the interaction with the IPFS daemon (and possibly Python), ipvc commands are quite slow, unlike snappy git commands
+* Due to the [public nature](https://github.com/ipfs/notes/issues/270) of IPFS data, IPVC might not be suitable for private repositories, unless it is hosted on a private network.
+* Due to the interaction with the IPFS daemon (and possibly Python), IPVC commands are quite slow, unlike snappy git commands
 
 ## Why IPFS?
 IPFS with its content addressable merkle-dags is the perfect technology for hosting repositories of data as well as commit graphs.
 
 ### Why not just use git?
-While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since ipfs has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
+While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since IPFS has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
 
 ## What
 * The implementation leverages IPFS's merkle-dag data structure for the commit graph, object storage and decentralized bit-torrent-like sharing
@@ -63,12 +63,12 @@ Note: commands not yet implemented are "commented" out
 * `ipvc diff content <to-refpath> <from-refpath>`
 
 ## How
-* Uses in Python 3.6, with go-ipfs as the ipfs server
-* Keeps track of the current state of the workspace, the staging area and the head of each branch. The workspace state is updated before every ipvc command is carried out
-* Leverages the ipfs mutable files system (MFS) for easy book-keeping of repositories and branches and commits
+* Uses in Python 3.6, with go-ipfs as the IPFS server
+* Keeps track of the current state of the workspace, the staging area and the head of each branch. The workspace state is updated before every IPVC command is carried out
+* Leverages the IPFS mutable files system (MFS) for easy book-keeping of repositories and branches and commits
 * Stores repositories and branches as folder and subfolders on the MFS as well as global settings
 * The refs to workspace, staging area and head of each branch is stores as subfolders within each branch
-* Each ref has a `bundle` subfolder which stores the reference to the actual file hierarchy and metadata which stores the timestamps and permissions of the files (this is not currently stored in the ipfs files ipld format)
+* Each ref has a `bundle` subfolder which stores the reference to the actual file hierarchy and metadata which stores the timestamps and permissions of the files (this is not currently stored in the IPFS files ipld format)
 * Individual commit objects are stored as folders where there are links to the parent commit and the repository ref, as well as a metadata file with author information and a timestamp
 
 ## TODO
@@ -79,5 +79,5 @@ Note: commands not yet implemented are "commented" out
 * Export/import from/to git/mercurial
 * Permissions in metadata
 * Follow + store symlinks in metadata
-* Virtual repos (ipfs only, not on the filesystem)
+* Virtual repos (IPFS only, not on the filesystem)
 * A server with GUI
