@@ -8,7 +8,7 @@ IPVC is a distributed version control system similar to git, but built on IPFS (
 * Due to the interaction with the IPFS daemon (and possibly Python), ipvc commands are quite slow, unlike snappy git commands
 
 ## Why IPFS?
-IPFS with its content addressable merke-dags is the perfect technology for hosting repositories of data as well as commit graphs.
+IPFS with its content addressable merkle-dags is the perfect technology for hosting repositories of data as well as commit graphs.
 
 ### Why not just use git?
 While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since ipfs has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
