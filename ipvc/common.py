@@ -154,7 +154,7 @@ class CommonAPI:
     def __init__(self, _ipfs, _fs_cwd, _namespace='/', quiet=False, verbose=False):
         self.ipfs = _ipfs
         self.fs_cwd = _fs_cwd
-        self.namespace = _namespace
+        self.namespace = Path(_namespace)
         self.quiet = quiet
         self.verbose = verbose
         self._in_atomic_operation = False
