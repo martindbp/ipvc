@@ -52,3 +52,7 @@ def test_mv():
     assert h is not None
 
 
+def test_status():
+    ipvc = get_environment()
+    # should not raise any errors, even though no repo has been created
+    ipvc.repo.status()
