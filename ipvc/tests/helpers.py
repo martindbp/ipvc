@@ -12,9 +12,10 @@ REPO2 = Path('/tmp/ipvc/repo2')
 def get_environment(path=REPO, mkdirs=True):
     ipvc = IPVC(path, NAMESPACE)
     try:
-        ipvc.ipfs.files_rm('/test/ipvc', recursive=True)
+        ipvc.ipfs.files_rm(NAMESPACE, recursive=True)
     except:
         pass
+    ipvc.ipfs.files_mkdir(NAMESPACE)
 
     try:
         shutil.rmtree('/tmp/ipvc')
