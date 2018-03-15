@@ -439,14 +439,6 @@ class CommonAPI:
             # Then copy over all metadata under mfs_add_path
             to_metadata.update((path, val) for path, val in from_metadata.items()
                                if path.startswith(str(mfs_to_add_path)))
-
-            # What is going on here? I forgot
-            '''
-            to_metadata = {path: val for path, val in to_metadata.items()
-                           if path[:len(mfs_to_add_path)] != mfs_to_add_path}
-            to_metadata.update((path, val) for path, val in from_metadata.items()
-                               if path[:len(mfs_to_add_path)] != mfs_to_add_path)
-            '''
             self.write_metadata(to_metadata, ref_to)
 
         return changes
