@@ -1,11 +1,6 @@
-import os
-import argparse
-import cProfile
-from pathlib import Path
+from .ipvc import main
 
-from .ipvc import IPVC
-
-if __name__ == '__main__':
+def main():
     cwd = Path.cwd()
     desc = 'Inter-Planetary Versioning Control (System)'
 
@@ -151,3 +146,6 @@ if __name__ == '__main__':
             route(**kwargs)
         except RuntimeError:
             exit(1)
+
+if __name__ == '__main__':
+    main()

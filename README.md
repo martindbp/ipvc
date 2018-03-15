@@ -25,12 +25,13 @@ While there is a [git remote helper for ipfs](https://github.com/magik6k/git-rem
 * Ability to check out only the parts of a large repository you care about
 
 ## Installation
-N/A
+`pip install ipvc`
+Note: Python >=3.6 is required to run IPVC
 
 # Prerequisites
 * go
-* go-ipfs 
-* Python 3.6
+* go-ipfs
+* Python >=3.6
 
 ## Commands and Examples
 Note: commands not yet implemented are "commented" out
@@ -74,7 +75,6 @@ Note: commands not yet implemented are "commented" out
 ## TODO
 * Merging/rebase
 * Partial branch checkout 
-* Pip package
 * Encryption of data/commits?
 * Export/import from/to git/mercurial
 * Permissions in metadata

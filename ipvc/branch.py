@@ -176,3 +176,11 @@ class BranchAPI(CommonAPI):
         url = f'http://localhost:8080/ipfs/{mfs_commit_hash}'
         if not self.quiet: print(f'Opening {url}')
         webbrowser.open(url)
+
+
+    @atomic
+    def merge(self, refpath):
+        """ Merge refpath into this branch
+
+        """
+        pass
