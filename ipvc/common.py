@@ -136,7 +136,13 @@ def atomic(api_method):
             self.ipfs.files_rm(old_namespace / 'ipvc', recursive=True)
         except:
             pass
-        self.ipfs.files_cp(tmp_namespace / 'ipvc', old_namespace / 'ipvc')
+
+        # Note: the api method might not have created an ipvc folder
+        # e.g. if first time use and running any command but ipvc repo init
+        try:
+            self.ipfs.files_cp(tmp_namespace / 'ipvc', old_namespace / 'ipvc')
+        except:
+            pass
         self.namespace = old_namespace
         self._in_atomic_operation = False
         return ret
