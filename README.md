@@ -13,7 +13,7 @@ IPFS with its content addressable merkle-dags is the perfect technology for host
 ### Why not just use git?
 While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since IPFS has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
 
-## What
+## What is it?
 * The implementation leverages IPFS's merkle-dag data structure for the commit graph, object storage and decentralized bit-torrent-like sharing
   * Supports large files out of the box, with no need for plugins, manually triggering file packing etc
   * Enables sharing the burden of seeding (pinning) large versioned datasets, just like bit-torrent
@@ -26,10 +26,42 @@ While there is a [git remote helper for ipfs](https://github.com/magik6k/git-rem
 
 ## Installation
 `pip install ipvc`
-Note: Python >=3.6 is required to run IPVC
+
+Note: Python >=3.6 and go-ipfs is required to run IPVC
+
+## Usage
+Initialize a repository
+`ipvc repo init`
+
+Create and add a file to the staging area
+`echo "hello world" > myfile.txt`
+`ipvc stage add myfile.txt`
+
+See what you've added to stage so far (status)
+`ipvc stage`
+
+Commit the staged changes
+`ipvc stage commit "My first commit"`
+
+See the commit history
+`ipvc branch history`
+
+Make a change to myfile.txt
+`echo "dont panic" > myfile.txt`
+`ipvc stage add myfile.txt`
+
+See what changed
+`ipvc stage diff`
+
+Commit the change
+`ipvc stage commit "Update my file"`
+
+Go back to the previous commit by creating a new branch
+`ipvc branch create --from-commit head~`
+
+NOTE: usage is incomplete as many important commands are not yet implemented
 
 # Prerequisites
-* go
 * go-ipfs
 * Python >=3.6
 
@@ -43,8 +75,8 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc repo ls - list all repos in ipvc`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
-* `ipvc branch rm <name>`
-* `ipvc branch mv <name>`
+* `//ipvc branch rm <name>`
+* `//ipvc branch mv <from> <to>`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
 * `ipvc branch show <refpath> # open refpath in browser`
@@ -81,3 +113,5 @@ Note: commands not yet implemented are "commented" out
 * Follow + store symlinks in metadata
 * Virtual repos (IPFS only, not on the filesystem)
 * A server with GUI
+* Tags
+* Commit messages in editor of choice
