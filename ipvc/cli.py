@@ -4,6 +4,7 @@ import cProfile
 from pathlib import Path
 
 from .ipvc_api import IPVC
+import ipvc
 
 def main():
     cwd = Path.cwd()
@@ -22,6 +23,9 @@ def main():
     # ------------- HELP --------------
     help_parser = subparsers.add_parser('help', description='Display help')
     help_parser.set_defaults(command='help', subcommand='')
+
+    version_parser = subparsers.add_parser('version', description='Display version')
+    version_parser.set_defaults(command='version', subcommand='')
 
     # ------------- REPO --------------
     repo_parser = subparsers.add_parser('repo', description='Repository functions')
@@ -135,15 +139,19 @@ def main():
     kwargs.pop('profile')
     quiet = kwargs.pop('quiet')
     verbose = kwargs.pop('verbose')
+
     # Replace dashes with underscores in option names
     kwargs = {key.replace('-', '_'): val for key, val in kwargs.items()}
 
     if args.command == 'help':
         print('Use the --help option for help')
         exit(0)
+    elif args.command == 'version':
+        print(ipvc.__version__)
+        exit(0)
 
-    ipvc = IPVC(quiet=quiet, verbose=verbose)
-    route = getattr(getattr(ipvc, args.command), args.subcommand)
+    api = IPVC(quiet=quiet, verbose=verbose)
+    route = getattr(getattr(api, args.command), args.subcommand)
     if args.profile:
         cProfile.run('route(**kwargs)')
     else:
