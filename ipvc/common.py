@@ -296,7 +296,7 @@ class CommonAPI:
             fs_workspace_root, branch, branch_info=f'{mfs_ref}/bundle/files')
 
         # Copy over the current ref root to a temporary
-        mfs_new_files_root = Path(f'{self.namespace}/ipvc/tmp')
+        mfs_new_files_root = Path(self.namespace) / 'ipvc' / 'tmp'
         try:
             self.ipfs.files_rm(mfs_new_files_root, recursive=True)
         except ipfsapi.exceptions.StatusError:

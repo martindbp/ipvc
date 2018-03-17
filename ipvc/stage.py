@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 
 import ipfsapi
-from ipvc.common import CommonAPI, print_changes, atomic
+from ipvc.common import CommonAPI, refpath_to_mfs, print_changes, atomic
 
 
 class StageAPI(CommonAPI):
@@ -134,7 +134,11 @@ class StageAPI(CommonAPI):
     def diff(self):
         """ Content diff from head to stage """
         fs_workspace_root, branch = self.common()
-        changes, *_ = self.get_mfs_changes(Path("@head"), Path("@stage"))
+
+        mfs_from_refpath, _ = refpath_to_mfs(Path("@head"))
+        mfs_to_refpath, _ = refpath_to_mfs(Path("@stage"))
+        changes, *_ = self.get_mfs_changes(
+            mfs_from_refpath, mfs_to_refpath)
         for change in changes:
             if change['Type'] != 2:
                 continue # only show modifications

@@ -124,20 +124,11 @@ def main():
     # ------------- DIFF --------------
     diff_parser = subparsers.add_parser(
         'diff', description='Display a diff between two ref paths, defaults to stage and workspace')
-    diff_parser.set_defaults(command='diff')
-    diff_subparsers = diff_parser.add_subparsers()
-
-    diff_files_parser = diff_subparsers.add_parser(
-        'files', description='Display list of changed files')
-    diff_files_parser.set_defaults(subcommand='files')
-    diff_files_parser.add_argument('to_refpath', nargs='?', help='to refpath', default='@stage')
-    diff_files_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@head')
-
-    diff_content_parser = diff_subparsers.add_parser(
-        'content', description='Display content diff')
-    diff_content_parser.set_defaults(subcommand='content')
-    diff_content_parser.add_argument('to_refpath', nargs='?', help='to refpath', default='@stage')
-    diff_content_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@head')
+    diff_parser.set_defaults(command='diff', subcommand='run')
+    diff_parser.add_argument(
+        '-f', '--files', action='store_true', help='Shows a list of changed files only')
+    diff_parser.add_argument('to_refpath', nargs='?', help='to refpath', default='@stage')
+    diff_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@head')
 
     args = parser.parse_args()
     kwargs = dict(args._get_kwargs())
