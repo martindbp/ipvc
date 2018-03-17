@@ -16,11 +16,11 @@ class BranchAPI(CommonAPI):
         fs_workspace_root, branch = self.common()
         active = self.ipfs.files_read(
             self.get_mfs_path(self.fs_cwd, repo_info='active_branch_name')).decode('utf-8')
-        if name and not self.quiet: print(active)
+        if not self.quiet: print(active)
         return active
 
     @atomic
-    def create(self, name, from_commit=None):
+    def create(self, name, from_commit="@head", no_checkout=False):
         fs_workspace_root, branch = self.common()
 
         if not name.replace('_', '').isalnum():
@@ -36,7 +36,12 @@ class BranchAPI(CommonAPI):
         except ipfsapi.exceptions.StatusError:
             pass
 
-        if from_commit is not None:
+        if from_commit == "@head":
+            # Simply copy the current branch to the new branch
+            self.ipfs.files_cp(
+                self.get_mfs_path(self.fs_cwd, branch),
+                self.get_mfs_path(self.fs_cwd, name))
+        else:
             # Create the branch directory along with an empty stage and workspace
             for ref in ['stage', 'workspace']:
                 mfs_ref = self.get_mfs_path(self.fs_cwd, name, branch_info=ref)
@@ -67,13 +72,9 @@ class BranchAPI(CommonAPI):
                 self.fs_cwd, name, branch_info='stage/bundle')
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_workspace_path)
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_stage_path)
-        else:
-            # Copy the current branch to the new branch
-            self.ipfs.files_cp(
-                self.get_mfs_path(self.fs_cwd, branch),
-                self.get_mfs_path(self.fs_cwd, name))
 
-        self.checkout(name)
+        if not no_checkout:
+            self.checkout(name)
 
     def _load_ref_into_workspace(self, fs_workspace_root, branch, ref,
                                  without_timestamps=False):
