@@ -13,7 +13,7 @@ IPFS with its content addressable merkle-dags is the perfect technology for host
 ### Why not just use git?
 While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since IPFS has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
 
-## What is it?
+## What does it do?
 * The implementation leverages IPFS's merkle-dag data structure for the commit graph, object storage and decentralized bit-torrent-like sharing
   * Supports large files out of the box, with no need for plugins, manually triggering file packing etc
   * Enables sharing the burden of seeding (pinning) large versioned datasets, just like bit-torrent
@@ -25,39 +25,75 @@ While there is a [git remote helper for ipfs](https://github.com/magik6k/git-rem
 * Ability to check out only the parts of a large repository you care about
 
 ## Installation
-`pip install ipvc`
+```
+pip install ipvc
+```
 
 Note: Python >=3.6 and go-ipfs is required to run IPVC
 
 ## Usage
 Initialize a repository
-`ipvc repo init`
+```
+$ ipvc repo init
+Successfully created repository
+```
 
 Create and add a file to the staging area
-`echo "hello world" > myfile.txt`
-`ipvc stage add myfile.txt`
+```
+$ echo "hello world" > myfile.txt
+$ ipvc stage add myfile.txt
+Changes:
++  QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o
+
+```
 
 See what you've added to stage so far (status)
-`ipvc stage`
+```
+$ ipvc stage
+Staged:
++ myfile.txt QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o
+```
 
 Commit the staged changes
-`ipvc stage commit "My first commit"`
+```
+$ ipvc stage commit "My first commit"
+```
 
 See the commit history
-`ipvc branch history`
+```
+$ ipvc branch history
+* 2018-03-17T14:43:22.254582           My first commit
+```
 
 Make a change to myfile.txt
-`echo "dont panic" > myfile.txt`
-`ipvc stage add myfile.txt`
+```
+$ echo "dont panic" > myfile.txt
+$ ipvc stage add myfile.txt
+Changes:
+ QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o --> QmbG1mR6m7KeJ3z2MB3t85VXxHUhD65kw3Yw3hGzStyEcW
+```
 
 See what changed
-`ipvc stage diff`
+```
+$ ipvc stage diff
+--- 
++++ 
+@@ -1,2 +1,2 @@
+-hello world
++dont panic
+```
 
 Commit the change
-`ipvc stage commit "Update my file"`
+```
+$ ipvc stage commit "Update my file"
+```
 
 Go back to the previous commit by creating a new branch
-`ipvc branch create --from-commit head~`
+```
+$ ipvc branch create --from-commit @head~ my_new_branch
+$ ipvc branch
+my_new_branch
+```
 
 NOTE: usage is incomplete as many important commands are not yet implemented
 
@@ -105,13 +141,4 @@ Note: commands not yet implemented are "commented" out
 * Individual commit objects are stored as folders where there are links to the parent commit and the repository ref, as well as a metadata file with author information and a timestamp
 
 ## TODO
-* Merging/rebase
-* Partial branch checkout 
-* Encryption of data/commits?
-* Export/import from/to git/mercurial
-* Permissions in metadata
-* Follow + store symlinks in metadata
-* Virtual repos (IPFS only, not on the filesystem)
-* A server with GUI
-* Tags
-* Commit messages in editor of choice
+See [TODO.md](TODO.md)
