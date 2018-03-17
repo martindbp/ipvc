@@ -56,6 +56,11 @@ def main():
     branch_parser.set_defaults(command='branch', subcommand='status')
     branch_subparsers = branch_parser.add_subparsers()
 
+    branch_status_parser = branch_subparsers.add_parser(
+        'status', description='Show status of current branch')
+    branch_status_parser.add_argument(
+        '-n', '--name', action="store_true", help="Print name of current branch only")
+
     branch_create_parser = branch_subparsers.add_parser(
         'create', description='Create a new branch from current point')
     branch_create_parser.set_defaults(subcommand='create')
