@@ -62,10 +62,12 @@ def main():
         '-n', '--name', action="store_true", help="Print name of current branch only")
 
     branch_create_parser = branch_subparsers.add_parser(
-        'create', description='Create a new branch from current point')
+        'create', description='Create a new branch and switch to it')
     branch_create_parser.set_defaults(subcommand='create')
     branch_create_parser.add_argument('name', help='branch name')
-    branch_create_parser.add_argument('-f', '--from-commit', default=None)
+    branch_create_parser.add_argument('-f', '--from-commit', default="@head")
+    branch_create_parser.add_argument(
+        '-n', '--no-checkout', action="store_true", help="Don't checkout the new branch after creating it")
 
     branch_checkout_parser = branch_subparsers.add_parser(
         'checkout', description='Checkout a branch')
