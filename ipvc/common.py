@@ -90,12 +90,13 @@ def print_changes(changes):
         before = (change['Before'] or {}).get('/', None)
         after = (change['After'] or {}).get('/', None)
         path = change['Path']
+        path = path + ' ' if path is not '' else ''
         if type_ == 0:
-            print(f'+ {path} {after}')
+            print(f'+ {path}{after}')
         elif type_ == 1:
-            print(f'- {path} {before}')
+            print(f'- {path}{before}')
         elif type_ == 2:
-            print(f'{path} {before} --> {after}')
+            print(f'{path}{before} --> {after}')
 
 
 def make_len(string, num):

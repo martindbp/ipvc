@@ -146,6 +146,6 @@ class StageAPI(CommonAPI):
             file2 = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
             diff = difflib.unified_diff(file1, file2, lineterm='')
             if not self.quiet:
-                print('\n'.join(diff))
+                print('\n'.join(list(diff)[:-1]))
 
         return changes
