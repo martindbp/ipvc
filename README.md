@@ -126,7 +126,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc stage add <path>`
 * `ipvc stage remove <path>`
 * `ipvc stage commit <msg>`
-* `ipvc stage diff # alias for ipvc diff content stage workspace`
+* `ipvc stage diff # alias for ipvc diff stage workspace`
 * `//ipvc stage uncommit`
 * `ipvc diff files <to-refpath> <from-refpath>`
 * `ipvc diff content <to-refpath> <from-refpath>`
@@ -136,9 +136,34 @@ Note: commands not yet implemented are "commented" out
 * Keeps track of the current state of the workspace, the staging area and the head of each branch. The workspace state is updated before every IPVC command is carried out
 * Leverages the IPFS mutable files system (MFS) for easy book-keeping of repositories and branches and commits
 * Stores repositories and branches as folder and subfolders on the MFS as well as global settings
-* The refs to workspace, staging area and head of each branch is stores as subfolders within each branch
-* Each ref has a `bundle` subfolder which stores the reference to the actual file hierarchy and metadata which stores the timestamps and permissions of the files (this is not currently stored in the IPFS files ipld format)
+* The refs to workspace, staging area and head of each branch is stored as subfolders within each branch
+* Each ref has a `bundle` subfolder which contains the reference to the actual file hierarchy and metadata which contains the timestamps and permissions of the files (this is not currently stored in the IPFS files ipld format)
 * Individual commit objects are stored as folders where there are links to the parent commit and the repository ref, as well as a metadata file with author information and a timestamp
 
 ## TODO
 See [TODO.md](TODO.md)
+
+## Testing
+There are two levels of tests, in pytest, and a command line test.
+
+To run pytest, run
+> python3 -m pytest -s
+in the ipvc folder
+
+To run the command line tests, create an empty folder and from it, run
+> {path to ipvc}/tests/test_cli.sh
+
+In both cases, make sure that ipfs is running
+
+## Release / PyPI
+
+Notes for maintainers on how to release ipvc as a package on PyPI
+
+1. Bump the version in "ipvc/__init__.py", using semver notation (major.minor.patch)
+2. Commit and tag using "git tag {major.minor.patch}"
+3. Build the distribution: "python setup.py sdist"
+4. Upload to twine test end-point: "twine upload --repository-url https://test.pypi.org/legacy/ dist/ipvc-{major.minor.patch}.tar.gz"
+5. Install and test from pip: "pip install --index-url https://test.pypi.org/simple/ ipvc"
+6. When tested, upload to real twine (without --repository-url)
+
+Version numbers can't be reused, so if there are problems then the version number has to be bumped. Because of this, the version numbers used on test end-point are not the same as in normal end-point. Therefore, it's best to test using a fake version number, and only commit and release when there are no problems on test.
