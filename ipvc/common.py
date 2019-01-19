@@ -448,7 +448,7 @@ class CommonAPI:
 
     def update_mfs_workspace(self):
         fs_workspace_root = self.get_workspace_root()
-        changes, num_hashed = self.add_fs_to_mfs(
+        return self.add_fs_to_mfs(
             fs_workspace_root, 'workspace')
 
     def common(self):
