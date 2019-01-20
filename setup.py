@@ -30,7 +30,7 @@ setup(
     description="Inter-Planetary Version Control (System)",
     long_description=long_description,
     author="Martin Pettersson",
-    author_email="martin@rememberberry.com",
-    url="https://github.com/rememberberry/ipvc",
+    author_email="me@martindbp.com",
+    url="https://github.com/martindbp/ipvc",
     install_requires=reqs
 )
