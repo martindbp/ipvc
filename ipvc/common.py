@@ -199,19 +199,26 @@ class CommonAPI:
         branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
         return branch
 
-    def get_workspace_root(self, fs_cwd=None):
+    def list_repo_paths(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
         try:
-            ls = self.ipfs.files_ls(self.get_mfs_path(ipvc_info='repos'))
-            workspaces_hex = set(entry['Name'] for entry in ls['Entries'])
+            repos_mfs_path = self.get_mfs_path(ipvc_info='repos')
+            ls = self.ipfs.files_ls(repos_mfs_path)
+            for entry in ls['Entries']:
+                workspace_hex = entry['Name']
+                workspace_path = bytes.fromhex(workspace_hex).decode('utf-8')
+                repo_mfs_path = Path(repos_mfs_path) / workspace_hex
+                workspace_hash = self.ipfs.files_stat(repos_mfs_path)['Hash']
+                yield workspace_hash, workspace_path
         except ipfsapi.exceptions.StatusError:
-            return None
+            return
 
-        for workspace_hex in workspaces_hex:
-            workspace = bytes.fromhex(workspace_hex).decode('utf-8')
-            workspace_parts = Path(workspace).parts
+    def get_workspace_root(self, fs_cwd=None):
+        fs_cwd = fs_cwd or self.fs_cwd
+        for _, workspace_path in self.list_repo_paths(fs_cwd):
+            workspace_parts = Path(workspace_path).parts
             if fs_cwd.parts[:len(workspace_parts)] == workspace_parts:
-                return Path(workspace)
+                return Path(workspace_path)
         return None
 
     def workspace_changes(self, fs_add_path, metadata, update_meta=True):

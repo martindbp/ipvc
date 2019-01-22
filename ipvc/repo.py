@@ -11,10 +11,21 @@ class RepoAPI(CommonAPI):
 
     @atomic
     def status(self):
-        print('Nothing to see here...')
+        """
+        Shows all the repositories on the connected ipfs node MFS
+        """
+        repos = list(self.list_repo_paths())
+        if not self.quiet:
+            print('Found repositories at:')
+            for h, path in repos:
+                print(f'{h}: {path}')
+        return repos
 
     @atomic
-    def init(self, force=False):
+    def init(self):
+        """
+        Initializes a new repository at the current working directory
+        """
         # Create the new repository folder structure
         fs_workspace_root = self.get_workspace_root()
         if fs_workspace_root is not None:

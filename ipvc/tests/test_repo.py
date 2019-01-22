@@ -8,10 +8,15 @@ from ipvc import IPVC
 from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file
 
 
-def test_init():
+def test_init_and_status():
     cwd = Path('/current/working/dir')
     ipvc = get_environment(cwd, mkdirs=False)
+    repos = ipvc.repo.status()
+    assert len(repos) == 0
     ipvc.repo.init()
+    repos = ipvc.repo.status()
+    assert len(repos) == 1
+    assert repos[0][1] == str(cwd)
 
     branch_name = ipvc.ipfs.files_read(
         ipvc.repo.get_mfs_path(cwd, repo_info='active_branch_name')).decode('utf-8')
@@ -23,8 +28,15 @@ def test_init():
         ipvc.set_cwd(cwd / 'test')
         ipvc.repo.init()
 
-    ipvc.set_cwd(Path('/somewhere/else'))
+    cwd2 = Path('/somewhere/else')
+    ipvc.set_cwd(cwd2)
     assert ipvc.repo.init() == True
+    repos = ipvc.repo.status()
+    assert len(repos) == 2
+    assert repos[0][1] == str(cwd)
+    assert repos[1][1] == str(cwd2)
+    # Both repos should have the same hash, since they're both empty
+    assert repos[0][0] == repos[1][0]
 
 
 def test_mv():
@@ -50,9 +62,3 @@ def test_mv():
     except:
         h = None
     assert h is not None
-
-
-def test_status():
-    ipvc = get_environment()
-    # should not raise any errors, even though no repo has been created
-    ipvc.repo.status()
