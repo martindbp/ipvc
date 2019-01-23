@@ -8,13 +8,13 @@ from ipvc import IPVC
 from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file
 
 
-def test_init_and_status():
+def test_init_and_ls():
     cwd = Path('/current/working/dir')
     ipvc = get_environment(cwd, mkdirs=False)
-    repos = ipvc.repo.status()
+    repos = ipvc.repo.ls()
     assert len(repos) == 0
     ipvc.repo.init()
-    repos = ipvc.repo.status()
+    repos = ipvc.repo.ls()
     assert len(repos) == 1
     assert repos[0][1] == str(cwd)
 
@@ -31,7 +31,7 @@ def test_init_and_status():
     cwd2 = Path('/somewhere/else')
     ipvc.set_cwd(cwd2)
     assert ipvc.repo.init() == True
-    repos = ipvc.repo.status()
+    repos = ipvc.repo.ls()
     assert len(repos) == 2
     assert repos[0][1] == str(cwd)
     assert repos[1][1] == str(cwd2)
@@ -39,7 +39,7 @@ def test_init_and_status():
     assert repos[0][0] == repos[1][0]
 
 
-def test_mv():
+def test_mv_rm():
     ipvc = get_environment()
     ipvc.repo.init()
     test_file = REPO / 'test_file.txt'
@@ -62,3 +62,12 @@ def test_mv():
     except:
         h = None
     assert h is not None
+
+
+    assert ipvc.repo.rm(REPO2) == True
+    assert REPO2.exists() # should still exist on filesystem
+    try:
+        h = ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO2))['Hash']
+    except:
+        h = None
+    assert h is None # should not exist on MFS

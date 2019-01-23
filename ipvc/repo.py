@@ -10,9 +10,9 @@ class RepoAPI(CommonAPI):
         super().__init__(*args, **kwargs)
 
     @atomic
-    def status(self):
+    def ls(self):
         """
-        Shows all the repositories on the connected ipfs node MFS
+        Lists all the repositories on the connected ipfs node MFS
         """
         repos = list(self.list_repo_paths())
         if not self.quiet:
@@ -94,4 +94,23 @@ class RepoAPI(CommonAPI):
 
         self.ipfs.files_cp(self.get_mfs_path(path1), self.get_mfs_path(path2))
         self.ipfs.files_rm(self.get_mfs_path(path1), recursive=True)
+        return True
+
+    @atomic
+    def rm(self, path):
+        """ Remove a repository at a given path"""
+        fs_workspace_root = self.get_workspace_root(path)
+
+        if fs_workspace_root is None:
+            if not self.quiet:
+                if path is None:
+                    print('No ipvc repository here', file=sys.stderr)
+                else:
+                    print(f'No ipvc repository at {path}', file=sys.stderr)
+            raise RuntimeError()
+
+        mfs_workspace_root = self.get_mfs_path(fs_workspace_root)
+        h = self.ipfs.files_stat(mfs_workspace_root)['Hash']
+        self.ipfs.files_rm(mfs_workspace_root, recursive=True)
+        print(f'Repository with hash {h} removed')
         return True

@@ -106,13 +106,14 @@ Note: commands not yet implemented are "commented" out
 
 * `ipvc repo init`
 * `ipvc repo mv <path1> [<path2>]`
+* `ipvc repo # alias for ls`
 * `//ipvc repo rm [<path>]`
-* `//ipvc repo # status`
-* `//ipvc repo ls - list all repos in ipvc`
+* `ipvc repo ls # list all repos in ipvc`
+* `ipvc repo mv [<from>] <to> - move a repository`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
 * `//ipvc branch rm <name>`
-* `//ipvc branch mv <from> <to>`
+* `//ipvc branch mv [<from>] <to>`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
 * `ipvc branch show <refpath> # open refpath in browser`

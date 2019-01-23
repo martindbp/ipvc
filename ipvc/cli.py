@@ -29,12 +29,12 @@ def main():
 
     # ------------- REPO --------------
     repo_parser = subparsers.add_parser('repo', description='Repository functions')
-    repo_parser.set_defaults(command='repo', subcommand='status')
+    repo_parser.set_defaults(command='repo', subcommand='ls')
     repo_subparsers = repo_parser.add_subparsers()
 
-    repo_status_parser = repo_subparsers.add_parser(
-        'status', description='Status of repo at this path')
-    repo_status_parser.set_defaults(subcommand='status')
+    repo_ls_parser = repo_subparsers.add_parser(
+        'ls', description='Status of repo at this path')
+    repo_ls_parser.set_defaults(subcommand='ls')
 
     repo_init_parser = repo_subparsers.add_parser('init', description='Initialize a repo')
     repo_init_parser.set_defaults(subcommand='init')
@@ -44,6 +44,10 @@ def main():
     repo_mv_parser.add_argument(
         'path1', help='from path if narg=2 otherwise to path', default=cwd)
     repo_mv_parser.add_argument('path2', help='to path', default=None)
+
+    repo_rm_parser = repo_subparsers.add_parser('rm', description='Remove a repo')
+    repo_rm_parser.set_defaults(subcommand='rm')
+    repo_rm_parser.add_argument('path', help='path to repo', default=cwd)
 
     # ------------- PARAM --------------
     param_parser = subparsers.add_parser('param')
