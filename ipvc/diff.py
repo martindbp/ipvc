@@ -25,7 +25,7 @@ class DiffAPI(CommonAPI):
 
     def run(self, to_refpath="@stage", from_refpath="@head", files=False):
         if files:
-            fs_workspace_root, branch = self.common()
+            fs_repo_root, branch = self.common()
             to_refpath, from_refpath = self._resolve_refs(to_refpath, from_refpath)
 
             changes, *_ = self.get_mfs_changes(
@@ -35,7 +35,7 @@ class DiffAPI(CommonAPI):
 
             return changes
         else:
-            fs_workspace_root, branch = self.common()
+            fs_repo_root, branch = self.common()
             to_refpath, from_refpath = self._resolve_refs(to_refpath, from_refpath)
 
             changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)

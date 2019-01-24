@@ -27,17 +27,17 @@ class RepoAPI(CommonAPI):
         Initializes a new repository at the current working directory
         """
         # Create the new repository folder structure
-        fs_workspace_root = self.get_workspace_root()
-        if fs_workspace_root is not None:
+        fs_repo_root = self.get_repo_root()
+        if fs_repo_root is not None:
             if self.quiet:
                 raise RuntimeError()
 
-            if len(str(fs_workspace_root)) < len(str(self.fs_cwd)):
+            if len(str(fs_repo_root)) < len(str(self.fs_cwd)):
                 print(f'A repository already exists upstream from here at \
-                      {fs_workspace_root}', file=sys.stderr)
-            elif len(str(fs_workspace_root)) > len(str(self.fs_cwd)):
+                      {fs_repo_root}', file=sys.stderr)
+            elif len(str(fs_repo_root)) > len(str(self.fs_cwd)):
                 print(f'A repository already exists downstream from here at \
-                      {fs_workspace_root}', file=sys.stderr)
+                      {fs_repo_root}', file=sys.stderr)
             else:
                 print('A repository already exists here', file=sys.stderr)
             raise RuntimeError()
@@ -56,7 +56,7 @@ class RepoAPI(CommonAPI):
         self.ipfs.files_write(
             active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
 
-        self.update_mfs_workspace()
+        self.update_mfs_repo()
 
         if not self.quiet: print(f'Successfully created repository')
         return True
@@ -65,21 +65,21 @@ class RepoAPI(CommonAPI):
     def mv(self, path1, path2):
         """ Move a repository from one path to another """
         if path2 is None:
-            fs_workspace_root = self.get_workspace_root()
-            if fs_workspace_root is None:
+            fs_repo_root = self.get_repo_root()
+            if fs_repo_root is None:
                 if not self.quiet:
                     print('No ipvc repository here', file=sys.stderr)
                 raise RuntimeError()
             path2 = path1
-            path1 = fs_workspace_root
+            path1 = fs_repo_root
         else:
-            path1 = self.get_workspace_root(path1)
+            path1 = self.get_repo_root(path1)
             if path1 is None:
                 if not self.quiet:
                     print(f'No ipvc repository at {path1}', file=sys.stderr)
                 raise RuntimeError()
 
-        if self.get_workspace_root(path2) is not None:
+        if self.get_repo_root(path2) is not None:
             if not self.quiet:
                 print(f'There is already a repository above or below {path2}',
                       file=sys.stderr)
@@ -99,9 +99,9 @@ class RepoAPI(CommonAPI):
     @atomic
     def rm(self, path):
         """ Remove a repository at a given path"""
-        fs_workspace_root = self.get_workspace_root(path)
+        fs_repo_root = self.get_repo_root(path)
 
-        if fs_workspace_root is None:
+        if fs_repo_root is None:
             if not self.quiet:
                 if path is None:
                     print('No ipvc repository here', file=sys.stderr)
@@ -109,8 +109,8 @@ class RepoAPI(CommonAPI):
                     print(f'No ipvc repository at {path}', file=sys.stderr)
             raise RuntimeError()
 
-        mfs_workspace_root = self.get_mfs_path(fs_workspace_root)
-        h = self.ipfs.files_stat(mfs_workspace_root)['Hash']
-        self.ipfs.files_rm(mfs_workspace_root, recursive=True)
+        mfs_repo_root = self.get_mfs_path(fs_repo_root)
+        h = self.ipfs.files_stat(mfs_repo_root)['Hash']
+        self.ipfs.files_rm(mfs_repo_root, recursive=True)
         print(f'Repository with hash {h} removed')
         return True

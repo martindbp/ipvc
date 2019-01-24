@@ -160,18 +160,18 @@ class CommonAPI:
         self.verbose = verbose
         self._in_atomic_operation = False
 
-    def get_mfs_path(self, fs_workspace_root=None, branch=None, repo_info=None,
+    def get_mfs_path(self, fs_repo_root=None, branch=None, repo_info=None,
                      branch_info=None, ipvc_info=None):
         path = Path(self.namespace) / 'ipvc'
         if ipvc_info is not None:
             return path / ipvc_info
-        if fs_workspace_root is None:
+        if fs_repo_root is None:
             return path
-        # Encode the workspace path in hex so that we can store the path
+        # Encode the repo path in hex so that we can store the path
         # information in the directory name itself. Then there's no need to name
         # it and # store the path some other way
-        workspace_hex = str(fs_workspace_root).encode('utf-8').hex()
-        path = path / 'repos' / workspace_hex
+        repo_hex = str(fs_repo_root).encode('utf-8').hex()
+        path = path / 'repos' / repo_hex
         if repo_info is not None:
             return path / repo_info
         if branch is None:
@@ -193,9 +193,9 @@ class CommonAPI:
         ret['Changes'] = changes
         return ret
 
-    def get_active_branch(self, fs_workspace_root):
+    def get_active_branch(self, fs_repo_root):
         mfs_branch = self.get_mfs_path(
-            fs_workspace_root, repo_info='active_branch_name')
+            fs_repo_root, repo_info='active_branch_name')
         branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
         return branch
 
@@ -205,20 +205,20 @@ class CommonAPI:
             repos_mfs_path = self.get_mfs_path(ipvc_info='repos')
             ls = self.ipfs.files_ls(repos_mfs_path)
             for entry in ls['Entries']:
-                workspace_hex = entry['Name']
-                workspace_path = bytes.fromhex(workspace_hex).decode('utf-8')
-                repo_mfs_path = Path(repos_mfs_path) / workspace_hex
-                workspace_hash = self.ipfs.files_stat(repos_mfs_path)['Hash']
-                yield workspace_hash, workspace_path
+                repo_hex = entry['Name']
+                fs_repo_path = bytes.fromhex(repo_hex).decode('utf-8')
+                repo_mfs_path = Path(repos_mfs_path) / repo_hex
+                repo_hash = self.ipfs.files_stat(repo_mfs_path)['Hash']
+                yield repo_hash, fs_repo_path
         except ipfsapi.exceptions.StatusError:
             return
 
-    def get_workspace_root(self, fs_cwd=None):
+    def get_repo_root(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
-        for _, workspace_path in self.list_repo_paths(fs_cwd):
-            workspace_parts = Path(workspace_path).parts
-            if fs_cwd.parts[:len(workspace_parts)] == workspace_parts:
-                return Path(workspace_path)
+        for _, fs_repo_path in self.list_repo_paths(fs_cwd):
+            repo_parts = Path(fs_repo_path).parts
+            if fs_cwd.parts[:len(repo_parts)] == repo_parts:
+                return Path(fs_repo_path)
         return None
 
     def workspace_changes(self, fs_add_path, metadata, update_meta=True):
@@ -263,10 +263,10 @@ class CommonAPI:
         self.ipfs.files_write(path, data_bytes, create=True, truncate=True)
 
     def get_metadata_file(self, ref):
-        fs_workspace_root = self.get_workspace_root()
-        branch = self.get_active_branch(fs_workspace_root)
+        fs_repo_root = self.get_repo_root()
+        branch = self.get_active_branch(fs_repo_root)
         return self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=f'{ref}/bundle/metadata')
+            fs_repo_root, branch, branch_info=f'{ref}/bundle/metadata')
 
     def read_metadata(self, ref):
         return self.mfs_read_json(self.get_metadata_file(ref))
@@ -298,10 +298,10 @@ class CommonAPI:
         metadata but follow the symlink in the bundle files.
         """
 
-        fs_workspace_root = self.get_workspace_root()
-        branch = self.get_active_branch(fs_workspace_root)
+        fs_repo_root = self.get_repo_root()
+        branch = self.get_active_branch(fs_repo_root)
         mfs_files_root = self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=f'{mfs_ref}/bundle/files')
+            fs_repo_root, branch, branch_info=f'{mfs_ref}/bundle/files')
 
         # Copy over the current ref root to a temporary
         mfs_new_files_root = Path(self.namespace) / 'ipvc' / 'tmp'
@@ -311,14 +311,14 @@ class CommonAPI:
             pass
         
         self.ipfs.files_cp(mfs_files_root, mfs_new_files_root)
-        add_path_relative = fs_add_path.relative_to(fs_workspace_root)
+        add_path_relative = fs_add_path.relative_to(fs_repo_root)
 
         # Find the changes between the ref and the workspace, and modify the tmp root
         metadata = self.read_metadata(mfs_ref)
         added, removed, modified = self.workspace_changes(fs_add_path, metadata)
 
         def _mfs_files_path(fs_path):
-            relative_path = fs_path.relative_to(fs_workspace_root)
+            relative_path = fs_path.relative_to(fs_repo_root)
             return mfs_new_files_root / relative_path
 
 
@@ -370,13 +370,13 @@ class CommonAPI:
         return diff.get('Changes', []), num_hashed
 
     def get_mfs_changes(self, refpath_from, refpath_to):
-        fs_workspace_root = self.get_workspace_root()
-        branch = self.get_active_branch(fs_workspace_root)
+        fs_repo_root = self.get_repo_root()
+        branch = self.get_active_branch(fs_repo_root)
 
         mfs_from_path = self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=refpath_from)
+            fs_repo_root, branch, branch_info=refpath_from)
         mfs_to_path = self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=refpath_to)
+            fs_repo_root, branch, branch_info=refpath_to)
         try:
             stat = self.ipfs.files_stat(mfs_from_path)
             mfs_from_hash = stat['Hash']
@@ -410,16 +410,16 @@ class CommonAPI:
 
     def add_ref_changes_to_ref(self, ref_from, ref_to, path):
         """ Add changes from 'ref_from' to 'ref_to' and returns the changes"""
-        fs_workspace_root = self.get_workspace_root()
-        branch = self.get_active_branch(fs_workspace_root)
+        fs_repo_root = self.get_repo_root()
+        branch = self.get_active_branch(fs_repo_root)
 
         mfs_refpath_from, _ = refpath_to_mfs(f'@{ref_from}' / path)
         mfs_refpath_to, _ = refpath_to_mfs(f'@{ref_to}' / path)
 
         mfs_from_add_path = self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=mfs_refpath_from)
+            fs_repo_root, branch, branch_info=mfs_refpath_from)
         mfs_to_add_path = self.get_mfs_path(
-            fs_workspace_root, branch, branch_info=mfs_refpath_to)
+            fs_repo_root, branch, branch_info=mfs_refpath_to)
 
         # Get the reverse changes from the copying direction
         changes, to_empty, from_empty = self.get_mfs_changes(
@@ -453,17 +453,17 @@ class CommonAPI:
 
         return changes
 
-    def update_mfs_workspace(self):
-        fs_workspace_root = self.get_workspace_root()
+    def update_mfs_repo(self):
+        fs_repo_root = self.get_repo_root()
         return self.add_fs_to_mfs(
-            fs_workspace_root, 'workspace')
+            fs_repo_root, 'workspace')
 
     def common(self):
-        fs_workspace_root = self.get_workspace_root()
-        if fs_workspace_root is None:
+        fs_repo_root = self.get_repo_root()
+        if fs_repo_root is None:
             if not self.quiet: print('No ipvc repository here', file=sys.stderr)
             raise RuntimeError()
 
-        self.update_mfs_workspace()
-        branch = self.get_active_branch(fs_workspace_root)
-        return fs_workspace_root, branch
+        self.update_mfs_repo()
+        branch = self.get_active_branch(fs_repo_root)
+        return fs_repo_root, branch

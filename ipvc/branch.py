@@ -13,7 +13,7 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def status(self, name=False):
-        fs_workspace_root, branch = self.common()
+        _, branch = self.common()
         active = self.ipfs.files_read(
             self.get_mfs_path(self.fs_cwd, repo_info='active_branch_name')).decode('utf-8')
         if not self.quiet: print(active)
@@ -21,7 +21,7 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def create(self, name, from_commit="@head", no_checkout=False):
-        fs_workspace_root, branch = self.common()
+        _, branch = self.common()
 
         if not name.replace('_', '').isalnum():
             if not self.quiet:
@@ -76,12 +76,12 @@ class BranchAPI(CommonAPI):
         if not no_checkout:
             self.checkout(name)
 
-    def _load_ref_into_workspace(self, fs_workspace_root, branch, ref,
-                                 without_timestamps=False):
+    def _load_ref_into_repo(self, fs_repo_root, branch, ref,
+                            without_timestamps=False):
         """ Syncs the fs workspace with the files in ref """
         metadata = self.read_metadata(ref)
         added, removed, modified = self.workspace_changes(
-            fs_workspace_root, metadata, update_meta=False)
+            fs_repo_root, metadata, update_meta=False)
 
         mfs_refpath, _ = refpath_to_mfs(Path(f'@{ref}'))
 
@@ -90,8 +90,8 @@ class BranchAPI(CommonAPI):
 
         for path in removed | modified:
             mfs_path = self.get_mfs_path(
-                fs_workspace_root, branch,
-                branch_info=(mfs_refpath / path.relative_to(fs_workspace_root)))
+                fs_repo_root, branch,
+                branch_info=(mfs_refpath / path.relative_to(fs_repo_root)))
 
             timestamp = metadata[str(path)]['timestamp']
 
@@ -103,7 +103,7 @@ class BranchAPI(CommonAPI):
     @atomic
     def checkout(self, name, without_timestamps=False):
         """ Checks out a branch"""
-        fs_workspace_root, _ = self.common()
+        fs_repo_root, _ = self.common()
 
         try:
             self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
@@ -118,14 +118,14 @@ class BranchAPI(CommonAPI):
             io.BytesIO(bytes(name, 'utf-8')),
             create=True, truncate=True)
 
-        self._load_ref_into_workspace(
-            fs_workspace_root, name, 'workspace', without_timestamps)
+        self._load_ref_into_repo(
+            fs_repo_root, name, 'workspace', without_timestamps)
 
     @atomic
     def history(self, show_ref=False):
         """ Shows the commit history for the current branch. Currently only shows
         the linear history on the first parents side"""
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
 
         # Traverse the commits backwards by adding /parent1/parent1/parent1/... etc
         # to the mfs path until it stops
@@ -133,7 +133,7 @@ class BranchAPI(CommonAPI):
         commits = []
         while True:
             mfs_commit = self.get_mfs_path(
-                fs_workspace_root, branch, branch_info=curr_commit)
+                fs_repo_root, branch, branch_info=curr_commit)
             mfs_commit_meta = mfs_commit / 'metadata'
             try:
                 mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
@@ -164,11 +164,11 @@ class BranchAPI(CommonAPI):
     @atomic
     def show(self, refpath):
         """ Opens a ref in the ipfs file browser """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
 
         files, _ = refpath_to_mfs(refpath)
         try:
-            mfs_commit = self.get_mfs_path(fs_workspace_root, branch, branch_info=files)
+            mfs_commit = self.get_mfs_path(fs_repo_root, branch, branch_info=files)
             mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
         except ipfsapi.exceptions.StatusError:
             if not self.quiet: print('No such ref', file=sys.stderr)

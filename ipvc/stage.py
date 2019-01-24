@@ -14,12 +14,12 @@ class StageAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _get_relative_paths(self, fs_paths, fs_workspace_root):
+    def _get_relative_paths(self, fs_paths, fs_repo_root):
         fs_paths = fs_paths if isinstance(fs_paths, list) else [fs_paths]
         for fs_path in fs_paths:
             fs_path = Path(os.path.abspath(fs_path))
             try: 
-                yield fs_path.relative_to(fs_workspace_root)
+                yield fs_path.relative_to(fs_repo_root)
             except:
                 # Doesn't start with workspace_root
                 if not self.quiet:
@@ -31,10 +31,10 @@ class StageAPI(CommonAPI):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
         """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
         fs_paths = self.fs_cwd if fs_paths is None else fs_paths
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, fs_workspace_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, fs_repo_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'workspace', 'stage', fs_path_relative)
 
@@ -51,9 +51,9 @@ class StageAPI(CommonAPI):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
         """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, fs_workspace_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, fs_repo_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'head', 'stage', fs_path_relative)
 
@@ -68,7 +68,7 @@ class StageAPI(CommonAPI):
     @atomic
     def status(self):
         """ Show diff between workspace and stage, and between stage and head """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
 
         head_stage_changes, *_ = self.get_mfs_changes(
             'head/bundle/files', 'stage/bundle/files')
@@ -94,10 +94,10 @@ class StageAPI(CommonAPI):
     @atomic
     def commit(self, message):
         """ Create a new commit object, and point head to it """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
 
-        mfs_head = self.get_mfs_path(fs_workspace_root, branch, branch_info='head')
-        mfs_stage = self.get_mfs_path(fs_workspace_root, branch, branch_info='stage')
+        mfs_head = self.get_mfs_path(fs_repo_root, branch, branch_info='head')
+        mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
         head_hash = self.ipfs.files_stat(mfs_head)['Hash']
 
         # Set head to stage
@@ -133,7 +133,7 @@ class StageAPI(CommonAPI):
     @atomic
     def diff(self):
         """ Content diff from head to stage """
-        fs_workspace_root, branch = self.common()
+        fs_repo_root, branch = self.common()
 
         mfs_from_refpath, _ = refpath_to_mfs(Path("@head"))
         mfs_to_refpath, _ = refpath_to_mfs(Path("@stage"))
