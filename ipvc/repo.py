@@ -22,20 +22,21 @@ class RepoAPI(CommonAPI):
         return repos
 
     @atomic
-    def init(self):
+    def init(self, path=None):
         """
         Initializes a new repository at the current working directory
         """
+        path = path or self.fs_cwd
         # Create the new repository folder structure
-        fs_repo_root = self.get_repo_root()
+        fs_repo_root = self.get_repo_root(path)
         if fs_repo_root is not None:
             if self.quiet:
                 raise RuntimeError()
 
-            if len(str(fs_repo_root)) < len(str(self.fs_cwd)):
+            if len(str(fs_repo_root)) < len(str(path)):
                 print(f'A repository already exists upstream from here at \
                       {fs_repo_root}', file=sys.stderr)
-            elif len(str(fs_repo_root)) > len(str(self.fs_cwd)):
+            elif len(str(fs_repo_root)) > len(str(path)):
                 print(f'A repository already exists downstream from here at \
                       {fs_repo_root}', file=sys.stderr)
             else:
@@ -47,12 +48,12 @@ class RepoAPI(CommonAPI):
         # folder) to diff against rather than having to handle it as a special case
         for ref in ['stage', 'workspace', 'head']:
             mfs_files = self.get_mfs_path(
-                self.fs_cwd, 'master', branch_info=f'{ref}/bundle/files')
+                path, 'master', branch_info=f'{ref}/bundle/files')
             self.ipfs.files_mkdir(mfs_files, parents=True)
 
         # Store the active branch name in 'active_branch_name'
         active_branch_path = self.get_mfs_path(
-            self.fs_cwd, repo_info='active_branch_name')
+            path, repo_info='active_branch_name')
         self.ipfs.files_write(
             active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
 
@@ -112,5 +113,5 @@ class RepoAPI(CommonAPI):
         mfs_repo_root = self.get_mfs_path(fs_repo_root)
         h = self.ipfs.files_stat(mfs_repo_root)['Hash']
         self.ipfs.files_rm(mfs_repo_root, recursive=True)
-        print(f'Repository with hash {h} removed')
+        print('Repository successfully removed')
         return True

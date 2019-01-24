@@ -33,11 +33,13 @@ def main():
     repo_subparsers = repo_parser.add_subparsers()
 
     repo_ls_parser = repo_subparsers.add_parser(
-        'ls', description='Status of repo at this path')
+        'ls', description='List all repos in IPFS node')
     repo_ls_parser.set_defaults(subcommand='ls')
 
     repo_init_parser = repo_subparsers.add_parser('init', description='Initialize a repo')
     repo_init_parser.set_defaults(subcommand='init')
+    repo_init_parser.add_argument(
+        '--path', help='Path to initialize', default=cwd)
 
     repo_mv_parser = repo_subparsers.add_parser('mv', description='Move a repo')
     repo_mv_parser.set_defaults(subcommand='mv')
@@ -47,7 +49,7 @@ def main():
 
     repo_rm_parser = repo_subparsers.add_parser('rm', description='Remove a repo')
     repo_rm_parser.set_defaults(subcommand='rm')
-    repo_rm_parser.add_argument('path', help='path to repo', default=cwd)
+    repo_rm_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
 
     # ------------- PARAM --------------
     param_parser = subparsers.add_parser('param')
