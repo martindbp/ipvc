@@ -141,8 +141,20 @@ Note: commands not yet implemented are "commented" out
 * Each ref has a `bundle` subfolder which contains the reference to the actual file hierarchy and metadata which contains the timestamps and permissions of the files (this is not currently stored in the IPFS files ipld format)
 * Individual commit objects are stored as folders where there are links to the parent commit and the repository ref, as well as a metadata file with author information and a timestamp
 
-## TODO
-See [TODO.md](TODO.md)
+## TODO and Ideas
+In no particular order of importance
+* Merging/rebase
+* Export/import from/to git/mercurial
+* Picking lines when adding to stage, similar to git's `git add -p`
+* Permissions in metadata
+* Tags
+* Commit messages in editor of choice
+* Follow + store symlinks in metadata
+* Virtual repos (in IPFS/MFS only, not on the filesystem)
+* A server with GUI
+* Encryption of data/commits?
+* Partial branch checkout
+* Use aiohttp for async data transfer between ipfs and files
 
 ## Testing
 There are two levels of tests, in pytest, and a command line test.
