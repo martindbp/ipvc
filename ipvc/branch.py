@@ -122,7 +122,7 @@ class BranchAPI(CommonAPI):
             fs_repo_root, name, 'workspace', without_timestamps)
 
     @atomic
-    def history(self, show_ref=False):
+    def history(self, show_hash=False):
         """ Shows the commit history for the current branch. Currently only shows
         the linear history on the first parents side"""
         fs_repo_root, branch = self.common()
@@ -151,7 +151,7 @@ class BranchAPI(CommonAPI):
             h, ts, msg = mfs_commit_hash[:6], meta['timestamp'], meta['message']
             auth = make_len(meta['author'] or '', 30)
             if not self.quiet: 
-                if show_ref:
+                if show_hash:
                     print(f'* {mfs_commit_ref_hash} {ts} {auth}   {msg}')
                 else:
                     print(f'* {ts} {auth}   {msg}')

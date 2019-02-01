@@ -86,7 +86,7 @@ def main():
         'history', description='Show branch commit history')
     branch_history_parser.set_defaults(subcommand='history')
     branch_history_parser.add_argument(
-        '-s', '--show-ref', action='store_true', help='Shows ref hashes to files')
+        '-s', '--show-hash', action='store_true', help='Shows hashes to commit content')
 
     branch_show_parser = branch_subparsers.add_parser(
         'show', description='Show a ref in the browser')
