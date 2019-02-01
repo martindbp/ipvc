@@ -89,10 +89,12 @@ def main():
         '-s', '--show-hash', action='store_true', help='Shows hashes to commit content')
 
     branch_show_parser = branch_subparsers.add_parser(
-        'show', description='Show a ref in the browser')
+        'show', description='Show what\'s at a refpath (ls if folder, cat if file)')
     branch_show_parser.set_defaults(subcommand='show')
     branch_show_parser.add_argument(
-        'ref', nargs='?', help='The ref (e.g. head or head~', default='@head')
+        'refpath', nargs='?', help='The refpath (e.g. head or head~', default='@head')
+    branch_show_parser.add_argument(
+        '-b', '--browser', action='store_true', help='Show the refpath in the default browser')
 
     # ------------- STAGE --------------
     stage_parser = subparsers.add_parser(

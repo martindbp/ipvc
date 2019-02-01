@@ -162,22 +162,29 @@ class BranchAPI(CommonAPI):
         return commits
 
     @atomic
-    def show(self, refpath):
+    def show(self, refpath, browser=False):
         """ Opens a ref in the ipfs file browser """
-        fs_repo_root, branch = self.common()
-
-        files, _ = refpath_to_mfs(refpath)
-        try:
-            mfs_commit = self.get_mfs_path(fs_repo_root, branch, branch_info=files)
-            mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
-        except ipfsapi.exceptions.StatusError:
-            if not self.quiet: print('No such ref', file=sys.stderr)
-            raise RuntimeError()
-
-        url = f'http://localhost:8080/ipfs/{mfs_commit_hash}'
-        if not self.quiet: print(f'Opening {url}')
-        webbrowser.open(url)
-
+        mfs_commit_hash = self.get_refpath_hash(refpath)
+        if browser:
+            # TODO: read IPFS node url from settings
+            url = f'http://localhost:8080/ipfs/{mfs_commit_hash}'
+            if not self.quiet: print(f'Opening {url}')
+            webbrowser.open(url)
+        else:
+            ret = self.ipfs.ls(f'/ipfs/{mfs_commit_hash}')
+            obj = ret['Objects'][0]
+            if len(obj['Links']) == 0:
+                # It's a file, so cat it
+                cat = self.ipfs.cat(f'/ipfs/{mfs_commit_hash}').decode('utf-8')
+                if not self.quiet:
+                    print(cat)
+                return cat
+            else:
+                # It's a folder
+                ls = '\n'.join([ln['Name'] for ln in obj['Links']])
+                if not self.quiet:
+                    print(ls)
+                return ls
 
     @atomic
     def merge(self, refpath):

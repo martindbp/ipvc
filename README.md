@@ -116,8 +116,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc branch mv [<from>] <to>`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
-* `ipvc branch show <refpath> # open refpath in browser`
-* `//ipvc branch cat <refpath> # cat refpath`
+* `ipvc branch show <refpath> # shows content of refpath`
 * `//ipvc branch ls # list branches`
 * `//ipvc branch merge <refpath> # analagous to git merge`
 * `//ipvc branch replay <refpath> # analagous to git rebase`
@@ -143,6 +142,7 @@ Note: commands not yet implemented are "commented" out
 
 ## TODO and Ideas
 In no particular order of importance
+* Optimize! Currently things are way too slow
 * Merging/rebase
 * Export/import from/to git/mercurial
 * Picking lines when adding to stage, similar to git's `git add -p`

@@ -2,6 +2,7 @@ import os
 import shutil
 import time
 import pytest
+from pathlib import Path
 
 from ipvc import IPVC
 from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file
@@ -91,3 +92,6 @@ def test_history():
 
     commits = ipvc.branch.history()
     assert len(commits) == 1
+
+    assert ipvc.branch.show(Path('@head')) == 'test_file.txt'
+    assert ipvc.branch.show(Path('@head/test_file.txt')) == 'hello world'

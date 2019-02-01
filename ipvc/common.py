@@ -467,3 +467,16 @@ class CommonAPI:
         self.update_mfs_repo()
         branch = self.get_active_branch(fs_repo_root)
         return fs_repo_root, branch
+
+    def get_refpath_hash(self, refpath):
+        fs_repo_root, branch = self.common()
+
+        files, _ = refpath_to_mfs(refpath)
+        try:
+            mfs_commit = self.get_mfs_path(fs_repo_root, branch, branch_info=files)
+            mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
+        except ipfsapi.exceptions.StatusError:
+            if not self.quiet: print('No such ref', file=sys.stderr)
+            raise RuntimeError()
+
+        return mfs_commit_hash
