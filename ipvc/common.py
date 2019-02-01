@@ -176,7 +176,7 @@ class CommonAPI:
             return path / repo_info
         if branch is None:
             return path
-        path = path / branch
+        path = path / 'branches' / branch
         if branch_info is not None:
             return path / branch_info
         return path
@@ -198,6 +198,12 @@ class CommonAPI:
             fs_repo_root, repo_info='active_branch_name')
         branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
         return branch
+
+    def get_branches(self, fs_repo_root):
+        mfs_branches_path = self.get_mfs_path(
+            fs_repo_root, repo_info='branches')
+        ls_ret = self.ipfs.files_ls(mfs_branches_path)
+        return [entry['Name'] for entry in ls_ret['Entries']]
 
     def list_repo_paths(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
