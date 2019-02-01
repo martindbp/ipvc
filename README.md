@@ -117,7 +117,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
 * `ipvc branch show <refpath> # shows content of refpath`
-* `//ipvc branch ls # list branches`
+* `ipvc branch ls # list branches`
 * `//ipvc branch merge <refpath> # analagous to git merge`
 * `//ipvc branch replay <refpath> # analagous to git rebase`
 * `//ipvc branch publish [--all] # publish branch to ipns`

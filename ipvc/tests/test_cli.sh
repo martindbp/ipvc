@@ -84,6 +84,11 @@ COMMAND="ipvc branch"
 CORRECT="my_new_branch"
 run_test
 
+COMMAND="ipvc branch ls"
+CORRECT="master
+my_new_branch"
+run_test
+
 COMMAND="ipvc repo rm"
 CORRECT="Repository successfully removed"
 run_test

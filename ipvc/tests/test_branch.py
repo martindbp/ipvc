@@ -22,8 +22,14 @@ def test_create_and_checkout():
     with pytest.raises(RuntimeError):
         ipvc.branch.create('master')
 
+    branches = set(ipvc.branch.ls())
+    assert branches == set(['master'])
+
     ipvc.branch.create('develop')
     assert ipvc.branch.status(name=True) == 'develop'
+
+    branches = set(ipvc.branch.ls())
+    assert branches == set(['master', 'develop'])
 
     head_stage, stage_workspace = ipvc.stage.status()
     assert len(head_stage) == 1 and len(stage_workspace) == 1

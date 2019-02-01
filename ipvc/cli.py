@@ -96,6 +96,10 @@ def main():
     branch_show_parser.add_argument(
         '-b', '--browser', action='store_true', help='Show the refpath in the default browser')
 
+    branch_ls_parser = branch_subparsers.add_parser(
+        'ls', description='List branches')
+    branch_ls_parser.set_defaults(subcommand='ls')
+
     # ------------- STAGE --------------
     stage_parser = subparsers.add_parser(
         'stage', description='Add/remove changes to stage and handle commits')
