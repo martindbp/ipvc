@@ -182,7 +182,7 @@ class CommonAPI:
         return path
 
     def ipfs_object_diff(self, hash_a, hash_b):
-        # Note: use ipfs.object_diff when it's released
+        # NOTE: use ipfs.object_diff when it's released
         ret = self.ipfs._client.request(
             '/object/diff', (hash_a, hash_b), decoder='json')
         # Due to a bug in go-ipfs 0.4.13 diffing an emtpy directory with itself
