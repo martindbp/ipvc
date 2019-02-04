@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+import json
 import webbrowser
 from pathlib import Path
 
@@ -133,37 +134,37 @@ class BranchAPI(CommonAPI):
         the linear history on the first parents side"""
         fs_repo_root, branch = self.common()
 
-        # Traverse the commits backwards by adding /parent1/parent1/parent1/... etc
-        # to the mfs path until it stops
-        curr_commit = Path('head')
+        # Traverse the commits backwards by via the {commit}/parent1/ link
+        mfs_commit_path = self.get_mfs_path(
+            fs_repo_root, branch, branch_info=Path('head'))
+        commit_hash = self.ipfs.files_stat(
+            mfs_commit_path)['Hash']
+
         commits = []
         while True:
-            mfs_commit = self.get_mfs_path(
-                fs_repo_root, branch, branch_info=curr_commit)
-            mfs_commit_meta = mfs_commit / 'metadata'
+            commit_ref_hash = self.ipfs.files_stat(
+                f'/ipfs/{commit_hash}/bundle/files')['Hash']
             try:
-                mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
-                mfs_commit_ref_hash = self.ipfs.files_stat(
-                    mfs_commit / 'bundle/files')['Hash']
+                meta = json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/metadata').decode('utf-8'))
             except ipfsapi.exceptions.StatusError:
                 # Reached the root of the graph
                 break
 
-            meta = self.mfs_read_json(mfs_commit_meta)
-            if len(meta) == 0:
-                # Reached the root of the graph
-                break
-
-            h, ts, msg = mfs_commit_hash[:6], meta['timestamp'], meta['message']
+            h, ts, msg = commit_hash[:6], meta['timestamp'], meta['message']
             auth = make_len(meta['author'] or '', 30)
             if not self.quiet: 
                 if show_hash:
-                    print(f'* {mfs_commit_ref_hash} {ts} {auth}   {msg}')
+                    print(f'* {commit_ref_hash} {ts} {auth}   {msg}')
                 else:
                     print(f'* {ts} {auth}   {msg}')
 
-            commits.append(mfs_commit_hash)
-            curr_commit = curr_commit / 'parent1'
+            commits.append(commit_hash)
+
+            try:
+                commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
+            except ipfsapi.exceptions.StatusError:
+                # Reached the root of the graph
+                break
 
         return commits
 
