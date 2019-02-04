@@ -28,6 +28,12 @@ class BranchAPI(CommonAPI):
                 print('Branch name has to be alpha numeric with underscores',
                       file=sys.stderr)
             raise RuntimeError()
+        elif name in ['head', 'workspace', 'stage']:
+            if not self.quiet:
+                print(f'"{name}" is a reserved keyword, please pick a different branch name',
+                      file=sys.stderr)
+            raise RuntimeError()
+
 
         try:
             self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
