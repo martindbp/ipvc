@@ -92,7 +92,7 @@ def main():
         'show', description='Show what\'s at a refpath (ls if folder, cat if file)')
     branch_show_parser.set_defaults(subcommand='show')
     branch_show_parser.add_argument(
-        'refpath', nargs='?', help='The refpath (e.g. head or head~', default='@head')
+        'refpath', nargs='?', help='The refpath (e.g. head or head~)', default='@head')
     branch_show_parser.add_argument(
         '-b', '--browser', action='store_true', help='Show the refpath in the default browser')
 
