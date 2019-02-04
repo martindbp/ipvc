@@ -171,18 +171,18 @@ class BranchAPI(CommonAPI):
     @atomic
     def show(self, refpath, browser=False):
         """ Opens a ref in the ipfs file browser """
-        mfs_commit_hash = self.get_refpath_hash(refpath)
+        commit_hash = self.get_refpath_hash(refpath)
         if browser:
             # TODO: read IPFS node url from settings
-            url = f'http://localhost:8080/ipfs/{mfs_commit_hash}'
+            url = f'http://localhost:8080/ipfs/{commit_hash}'
             if not self.quiet: print(f'Opening {url}')
             webbrowser.open(url)
         else:
-            ret = self.ipfs.ls(f'/ipfs/{mfs_commit_hash}')
+            ret = self.ipfs.ls(f'/ipfs/{commit_hash}')
             obj = ret['Objects'][0]
             if len(obj['Links']) == 0:
                 # It's a file, so cat it
-                cat = self.ipfs.cat(f'/ipfs/{mfs_commit_hash}').decode('utf-8')
+                cat = self.ipfs.cat(f'/ipfs/{commit_hash}').decode('utf-8')
                 if not self.quiet:
                     print(cat)
                 return cat
