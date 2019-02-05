@@ -128,6 +128,20 @@ class BranchAPI(CommonAPI):
         self._load_ref_into_repo(
             fs_repo_root, name, 'workspace', without_timestamps)
 
+    def get_parent_commit(self, commit_hash):
+        try:
+            commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
+            metadata = self.get_commit_metadata(commit_hash)
+            return commit_hash, metadata
+        except ipfsapi.exceptions.StatusError:
+            # Reached the root of the graph
+            return None, None
+
+    def get_commit_metadata(self, commit_hash):
+        # NOTE: the root commit doesn't have a metadata file, so this
+        # might fail
+        return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/metadata').decode('utf-8'))
+
     @atomic
     def history(self, show_hash=False):
         """ Shows the commit history for the current branch. Currently only shows
@@ -139,26 +153,28 @@ class BranchAPI(CommonAPI):
             fs_repo_root, branch, branch_info=Path('head'))
         commit_hash = self.ipfs.files_stat(
             mfs_commit_path)['Hash']
+        metadata = self.get_commit_metadata(commit_hash)
 
         commits = []
         while True:
-            commit_ref_hash = self.ipfs.files_stat(
+            commit_files_hash = self.ipfs.files_stat(
                 f'/ipfs/{commit_hash}/bundle/files')['Hash']
-            try:
-                meta = json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/metadata').decode('utf-8'))
-            except ipfsapi.exceptions.StatusError:
-                # Reached the root of the graph
-                break
 
-            h, ts, msg = commit_hash[:6], meta['timestamp'], meta['message']
-            auth = make_len(meta['author'] or '', 30)
+            h, ts, msg = commit_hash[:6], metadata['timestamp'], metadata['message']
+            auth = make_len(metadata['author'] or '', 30)
             if not self.quiet: 
                 if show_hash:
-                    print(f'* {commit_ref_hash} {ts} {auth}   {msg}')
+                    print(f'* {commit_files_hash} {ts} {auth}   {msg}')
                 else:
                     print(f'* {ts} {auth}   {msg}')
 
             commits.append(commit_hash)
+            commit_hash, metadata = self.get_parent_commit(commit_hash)
+            if commit_hash is None:
+                # Reached the root
+                break
+
+        return commits
 
             try:
                 commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
