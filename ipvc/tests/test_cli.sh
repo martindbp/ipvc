@@ -4,6 +4,10 @@
 # If you have valuable things in /ipvc then first move it somewhere else with e.g.
 # > ipfs files mv /ipvc /tmp
 
+# Also requires this shell script in /usr/local/bin/ to run commands:
+#   #! /bin/bash
+#   python3 -m ipvc "$@"
+
 
 run_test () {
   OUT=$(eval $COMMAND)
