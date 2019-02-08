@@ -451,10 +451,10 @@ class CommonAPI:
             to_metadata = self.read_metadata(ref_to)
             # First filter out any path under mfs_add_path
             to_metadata = {path: val for path, val in to_metadata.items()
-                           if not path.startswith(str(mfs_to_add_path))}
+                           if not path.startswith(str(path).strip('.'))}
             # Then copy over all metadata under mfs_add_path
             to_metadata.update((path, val) for path, val in from_metadata.items()
-                               if path.startswith(str(mfs_to_add_path)))
+                               if path.startswith(str(path).strip('.')))
             self.write_metadata(to_metadata, ref_to)
 
         return changes
