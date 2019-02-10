@@ -139,8 +139,8 @@ def main():
     diff_parser.set_defaults(command='diff', subcommand='run')
     diff_parser.add_argument(
         '-f', '--files', action='store_true', help='Shows a list of changed files only')
-    diff_parser.add_argument('to_refpath', nargs='?', help='to refpath', default='@stage')
-    diff_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@head')
+    diff_parser.add_argument('to_refpath', nargs='?', help='to refpath', default='@workspace')
+    diff_parser.add_argument('from_refpath', nargs='?', help='from refpath', default='@stage')
 
     args = parser.parse_args()
     kwargs = dict(args._get_kwargs())

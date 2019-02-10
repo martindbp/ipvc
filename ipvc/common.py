@@ -3,6 +3,7 @@ import io
 import sys
 import json
 import hashlib
+import difflib
 from functools import wraps
 from pathlib import Path
 
@@ -17,20 +18,9 @@ def expand_ref(ref: str):
         ref = ref[1:] # get rid of the @
         ref = ref.replace('~', '/parent1')
         ref = ref.replace('^', '/parent2')
+    elif ref.startswith('@'):
+        ref = ref[1:]
     return ref
-
-
-def transfer_ref_to_ref(refpath_from: Path, refpath_to: Path):
-    """ Transfer the files part from `ref_from` `to ref_to`
-    Expected behavior:
-        ref_from            ref_to            result
-        "@head~/myfolder"    "@stage"           "@stage/myfolder"
-        "@head/myfile.txt"   "@head~~"          "@head~~/myfile.txt"
-        "@head"              "@head~~"          "@head~~"
-        "@head/myfile.txt"   "@head~/myfolder/" raise exception
-        "@head/f/myfile.txt" "@stage/f/"        "@stage/f/myfile.txt"
-    """
-    pass
 
 
 def separate_refpath(refpath: Path):
@@ -45,6 +35,7 @@ def separate_refpath(refpath: Path):
     return parts[0], Path(*parts[1:])
 
 
+'''
 def go_to_parent(refpath: Path):
     """ Go to the parent (1) of ref
     Expected behavior:
@@ -55,33 +46,18 @@ def go_to_parent(refpath: Path):
     pass
 
 
-def refpath_to_mfs(refpath: Path):
-    """ Expands a reference to the files location
+def transfer_ref_to_ref(refpath_from: Path, refpath_to: Path):
+    """ Transfer the files part from `ref_from` `to ref_to`
     Expected behavior:
-        "@head~^/myfolder/myfile.txt" ->
-            "head/parent1/parent2/bundle/files/myfolder/myfile.txt"
-        "@stage/myfolder/myfile.txt" ->
-            "stage/bundle/files/myfolder/myfile.txt"
-        "myfolder/myfile.txt" ->
-            "workspace/bundle/files/myfolder/myfile.txt"
-        "@{commit_hash}/myfolder" ->
-            "/ipfs/{commit_hash}/workspace/bundle/files/myfolder"
-        "@{branch}/@head/myfolder" ->
-            "{branch}/head/bundle/files/myfolder"
+        ref_from            ref_to            result
+        "@head~/myfolder"    "@stage"           "@stage/myfolder"
+        "@head/myfile.txt"   "@head~~"          "@head~~/myfile.txt"
+        "@head"              "@head~~"          "@head~~"
+        "@head/myfile.txt"   "@head~/myfolder/" raise exception
+        "@head/f/myfile.txt" "@stage/f/"        "@stage/f/myfile.txt"
     """
-    ref, path = separate_refpath(refpath)
-    if ref is not None:
-        ref = expand_ref(ref)
-        if ref not in ['head', 'workspace', 'stage']:
-            # Treat it as a commit hash
-            return Path('/ipfs') / ref / 'bundle/files' / path, path
-
-        return ref / Path('bundle/files') / path, path
-    else:
-        # Assume a path in workspace
-        return Path('workspace/bundle/files') / refpath, refpath
-
-    return None, None
+    pass
+'''
 
 
 def print_changes(changes):
@@ -158,7 +134,41 @@ class CommonAPI:
         self.namespace = Path(_namespace)
         self.quiet = quiet
         self.verbose = verbose
+        self._branches = None
         self._in_atomic_operation = False
+
+    def refpath_to_mfs(self, refpath: Path):
+        """ Expands a reference to the files location
+        Expected behavior:
+            "@head~^/myfolder/myfile.txt" ->
+                "head/parent1/parent2/bundle/files/myfolder/myfile.txt"
+            "@stage/myfolder/myfile.txt" ->
+                "stage/bundle/files/myfolder/myfile.txt"
+            "myfolder/myfile.txt" ->
+                "workspace/bundle/files/myfolder/myfile.txt"
+            "@{commit_hash}/myfolder" ->
+                "/ipfs/{commit_hash}/bundle/files/myfolder"
+            "@{branch}/myfolder" ->
+                "{branch}/head/bundle/files/myfolder"
+
+        Returns (branch, mfs_path, workspace_path)
+        """
+        ref, path = separate_refpath(refpath)
+        if ref is not None:
+            ref = expand_ref(ref)
+            if ref in ['head', 'workspace', 'stage']:
+                return None, ref / Path('bundle/files') / path, path
+            elif ref in self.branches:
+                return (ref, *self.refpath_to_mfs(Path(path))[1:])
+            else:
+                # Treat it as a commit hash
+                return None, Path('/ipfs') / ref / 'bundle/files' / path, path
+
+        else:
+            # Assume a path in workspace
+            return None, Path('workspace/bundle/files') / refpath, refpath
+
+        return None, None, None
 
     def get_mfs_path(self, fs_repo_root=None, branch=None, repo_info=None,
                      branch_info=None, ipvc_info=None):
@@ -175,7 +185,10 @@ class CommonAPI:
         if repo_info is not None:
             return path / repo_info
         if branch is None:
-            return path
+            if branch_info is not None:
+                branch = self.get_active_branch(fs_repo_root)
+            else:
+                return path
         path = path / 'branches' / branch
         if branch_info is not None:
             return path / branch_info
@@ -199,11 +212,16 @@ class CommonAPI:
         branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
         return branch
 
-    def get_branches(self, fs_repo_root):
+    @property
+    def branches(self):
+        if self._branches is not None:
+            return self._branches
+        fs_repo_root = self.get_repo_root()
         mfs_branches_path = self.get_mfs_path(
             fs_repo_root, repo_info='branches')
         ls_ret = self.ipfs.files_ls(mfs_branches_path)
-        return [entry['Name'] for entry in ls_ret['Entries']]
+        self._branches = [entry['Name'] for entry in ls_ret['Entries']]
+        return self._branches
 
     def list_repo_paths(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
@@ -227,22 +245,29 @@ class CommonAPI:
                 return Path(fs_repo_path)
         return None
 
-    def workspace_changes(self, fs_add_path, metadata, update_meta=True):
+    def workspace_changes(self, fs_add_path, fs_repo_root, metadata, update_meta=True):
         """ Returns a list of updated, removed and modified file paths under
         'fs_add_path' as compared to the stored metadata
         """
-        metadata_files = set(Path(path) for path in metadata.keys()
-                             if str(fs_add_path) in path)
+        fs_add_path_relative = Path(fs_add_path).relative_to(fs_repo_root)
+        metadata_files = set()
+        for path in metadata.keys():
+            try:
+                Path(path).relative_to(fs_add_path_relative)
+                metadata_files.add(path)
+            except:
+                pass
         if fs_add_path.is_file():
-            fs_add_files = set([fs_add_path])
+            fs_add_files = set([str(fs_add_path_relative)])
         else:
-            fs_add_files = set(p for p in fs_add_path.glob('**/*')
+            fs_add_files = set(str(p.relative_to(fs_repo_root))
+                               for p in fs_add_path.glob('**/*')
                                if not p.is_dir())
 
         added = fs_add_files - metadata_files
         removed = metadata_files - fs_add_files
         persistent = metadata_files & fs_add_files
-        timestamps = {str(path): path.stat().st_mtime_ns for path
+        timestamps = {str(path): (fs_repo_root / path).stat().st_mtime_ns for path
                       in (persistent | added)}
         modified = set(
             (path for path in persistent if metadata.get(str(path), {})\
@@ -272,12 +297,12 @@ class CommonAPI:
         fs_repo_root = self.get_repo_root()
         branch = self.get_active_branch(fs_repo_root)
         return self.get_mfs_path(
-            fs_repo_root, branch, branch_info=f'{ref}/bundle/metadata')
+            fs_repo_root, branch, branch_info=f'{ref}/bundle/files_metadata')
 
-    def read_metadata(self, ref):
+    def read_files_metadata(self, ref):
         return self.mfs_read_json(self.get_metadata_file(ref))
 
-    def write_metadata(self, metadata, ref):
+    def write_files_metadata(self, metadata, ref):
         self.mfs_write_json(metadata, self.get_metadata_file(ref))
 
     def read_global_params(self):
@@ -320,37 +345,35 @@ class CommonAPI:
         add_path_relative = fs_add_path.relative_to(fs_repo_root)
 
         # Find the changes between the ref and the workspace, and modify the tmp root
-        metadata = self.read_metadata(mfs_ref)
-        added, removed, modified = self.workspace_changes(fs_add_path, metadata)
-
-        def _mfs_files_path(fs_path):
-            relative_path = fs_path.relative_to(fs_repo_root)
-            return mfs_new_files_root / relative_path
-
+        files_metadata = self.read_files_metadata(mfs_ref)
+        added, removed, modified = self.workspace_changes(
+            fs_add_path, fs_repo_root, files_metadata)
 
         for fs_path in removed | modified:
-            self.ipfs.files_rm(_mfs_files_path(fs_path), recursive=True)
+            self.ipfs.files_rm(mfs_new_files_root / fs_path, recursive=True)
 
         for fs_path in removed:
-            del metadata[str(fs_path)]
+            del files_metadata[str(fs_path)]
 
         num_hashed = 0
         printed_header = False
         for fs_path in added | modified:
             try:
-                dir_path = _mfs_files_path(fs_path).parent
+                dir_path = (mfs_new_files_root / fs_path).parent
                 self.ipfs.files_mkdir(dir_path, parents=True)
             except ipfsapi.exceptions.StatusError:
                 pass
-            self.ipfs.files_cp(f'/ipfs/{self.ipfs.add(fs_path)["Hash"]}',
-                               _mfs_files_path(fs_path))
+            h = self.ipfs.add(fs_repo_root / fs_path)["Hash"]
+            self.ipfs.files_cp(f'/ipfs/{h}', mfs_new_files_root / fs_path)
+
             num_hashed += 1
             if self.verbose:
                 if not printed_header:
                     if not self.quiet: print('Updating workspace:')
                     printed_header = True
                 if not self.quiet:
-                    print(make_len(f'{fs_path[len(self.fs_cwd):]}', 80), end='\r')
+                    fs_path_from_cwd = Path(fs_path).relative_to(self.fs_cwd)
+                    print(make_len(str(fs_path_from_cwd), 80), end='\r')
 
         if self.verbose and num_hashed > 0:
             if not self.quiet:
@@ -358,7 +381,7 @@ class CommonAPI:
                 print('-'*80)
 
         new_files_root_hash = self.ipfs.files_stat(mfs_new_files_root)['Hash']
-        metadata = self.write_metadata(metadata, mfs_ref)
+        self.write_files_metadata(files_metadata, mfs_ref)
         try:
             self.ipfs.files_rm(mfs_files_root, recursive=True)
         except ipfsapi.exceptions.StatusError:
@@ -385,14 +408,14 @@ class CommonAPI:
             fs_repo_root, branch, branch_info=refpath_to)
         try:
             stat = self.ipfs.files_stat(mfs_from_path)
-            mfs_from_hash = stat['Hash']
+            from_hash = stat['Hash']
             from_empty = False
         except ipfsapi.exceptions.StatusError:
             from_empty = True
 
         try:
             self.ipfs.files_stat(mfs_to_path)
-            mfs_to_hash = self.ipfs.files_stat(mfs_to_path)['Hash']
+            to_hash = self.ipfs.files_stat(mfs_to_path)['Hash']
             to_empty = False
         except ipfsapi.exceptions.StatusError:
             to_empty = True
@@ -401,26 +424,27 @@ class CommonAPI:
             changes = []
         elif from_empty:
             changes = [{
-                'Type': 0, 'Before': {'/': None}, 'After': {'/': mfs_to_hash},
+                'Type': 0, 'Before': {'/': None}, 'After': {'/': to_hash},
                 'Path': ''
             }]
         elif to_empty:
             changes = [{
-                'Type': 1, 'Before': {'/': mfs_from_hash}, 'After': {'/': None},
+                'Type': 1, 'Before': {'/': from_hash}, 'After': {'/': None},
                 'Path': ''
             }]
         else:
             changes = self.ipfs_object_diff(
-                mfs_from_hash, mfs_to_hash)['Changes'] or []
+                from_hash, to_hash)['Changes'] or []
         return changes, from_empty, to_empty
 
-    def add_ref_changes_to_ref(self, ref_from, ref_to, path):
-        """ Add changes from 'ref_from' to 'ref_to' and returns the changes"""
+    def add_ref_changes_to_ref(self, ref_from, ref_to, add_path):
+        """ Add changes from 'ref_from' to 'ref_to' under
+        `add_path` (relative to repo root) and returns the changes"""
         fs_repo_root = self.get_repo_root()
         branch = self.get_active_branch(fs_repo_root)
 
-        mfs_refpath_from, _ = refpath_to_mfs(f'@{ref_from}' / path)
-        mfs_refpath_to, _ = refpath_to_mfs(f'@{ref_to}' / path)
+        _, mfs_refpath_from, _ = self.refpath_to_mfs(f'@{ref_from}' / add_path)
+        _, mfs_refpath_to, _ = self.refpath_to_mfs(f'@{ref_to}' / add_path)
 
         mfs_from_add_path = self.get_mfs_path(
             fs_repo_root, branch, branch_info=mfs_refpath_from)
@@ -447,15 +471,24 @@ class CommonAPI:
             self.ipfs.files_cp(mfs_from_add_path, mfs_to_add_path)
 
             # Transfer the metadata for files under the add path
-            from_metadata = self.read_metadata(ref_from)
-            to_metadata = self.read_metadata(ref_to)
-            # First filter out any path under mfs_add_path
-            to_metadata = {path: val for path, val in to_metadata.items()
-                           if not path.startswith(str(path).strip('.'))}
-            # Then copy over all metadata under mfs_add_path
-            to_metadata.update((path, val) for path, val in from_metadata.items()
-                               if path.startswith(str(path).strip('.')))
-            self.write_metadata(to_metadata, ref_to)
+            from_metadata = self.read_files_metadata(ref_from)
+            to_metadata = self.read_files_metadata(ref_to)
+            # First remove any file under `add_path` in to_metadata
+            new_to_metadata = {}
+            for path, val in to_metadata.items():
+                try:
+                    Path(path).relative_to(add_path)
+                except:
+                    new_to_metadata[path] = val
+            # Then copy over all metadata under `path` from from_metadata
+            for path, val in from_metadata.items():
+                try:
+                    Path(path).relative_to(add_path)
+                    new_to_metadata[path] = val
+                except:
+                    pass
+
+            self.write_files_metadata(new_to_metadata, ref_to)
 
         return changes
 
@@ -474,15 +507,79 @@ class CommonAPI:
         branch = self.get_active_branch(fs_repo_root)
         return fs_repo_root, branch
 
-    def get_refpath_hash(self, refpath):
+    def get_refpath_files_hash(self, refpath):
         fs_repo_root, branch = self.common()
 
-        files, _ = refpath_to_mfs(refpath)
+        branch, files, _ = self.refpath_to_mfs(refpath)
+        mfs_commit_files = self.get_mfs_path(fs_repo_root, branch=branch, branch_info=files)
         try:
-            mfs_commit = self.get_mfs_path(fs_repo_root, branch, branch_info=files)
-            mfs_commit_hash = self.ipfs.files_stat(mfs_commit)['Hash']
+            commit_files_hash = self.ipfs.files_stat(mfs_commit_files)['Hash']
         except ipfsapi.exceptions.StatusError:
             if not self.quiet: print('No such ref', file=sys.stderr)
             raise RuntimeError()
 
-        return mfs_commit_hash
+        return commit_files_hash
+
+    def get_branch_head_hash(self, branch):
+        fs_repo_root, _ = self.common()
+        mfs_commit_path = self.get_mfs_path(fs_repo_root, branch=branch, branch_info='head')
+        try:
+            commit_hash = self.ipfs.files_stat(mfs_commit_path)['Hash']
+        except ipfsapi.exceptions.StatusError:
+            if not self.quiet: print('No such ref', file=sys.stderr)
+            raise RuntimeError()
+
+        return commit_hash
+
+    def _diff_resolve_refs(self, to_refpath=None, from_refpath=None,
+                           to_default="@workspace", from_default='@stage'):
+        to_refpath, from_refpath  = Path(to_refpath), Path(from_refpath)
+        if from_refpath is None and to_refpath is None:
+            to_refpath = '@workspace'
+            from_refpath = '@stage'
+            _, mfs_to_refpath, _ = self.refpath_to_mfs(to_refpath)
+            _, mfs_from_refpath, _ = self.refpath_to_mfs(from_refpath)
+        elif from_refpath is None:
+            _, mfs_to_refpath, files_part = self.refpath_to_mfs(to_refpath)
+            _, mfs_from_refpath, _ = self.refpath_to_mfs(from_default / files_part)
+        else:
+            _, mfs_to_refpath, _ = self.refpath_to_mfs(to_refpath)
+            _, mfs_from_refpath, _ = self.refpath_to_mfs(from_refpath)
+
+        return mfs_to_refpath, mfs_from_refpath
+
+    def _diff(self, to_refpath, from_refpath, files):
+        # TODO: change the files parameter to 'diff_content_only'
+        fs_repo_root, branch = self.common()
+        to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
+        changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
+        if files:
+            if not self.quiet:
+                print_changes(changes)
+
+            return changes
+        else:
+            for change in changes:
+                if change['Type'] == 2: # modified
+                    from_file_path = change['Path']
+                    to_file_path = from_file_path
+                    from_lines = self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
+                    to_lines = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
+                elif change['Type'] == 1: # deleted
+                    to_file_path = '/dev/null'
+                    from_file_path = change['Path']
+                    to_lines = []
+                    from_lines = self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
+                elif change['Type'] == 0: # added
+                    to_file_path = change['Path']
+                    from_file_path = '/dev/null'
+                    to_lines = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
+                    from_lines = []
+                diff = difflib.unified_diff(from_lines, to_lines, lineterm='',
+                                            fromfile=from_file_path,
+                                            tofile=to_file_path)
+                if not self.quiet:
+                    print('\n'.join(list(diff)[:-1]))
+
+            return changes
+

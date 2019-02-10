@@ -2,12 +2,11 @@ import os
 import io
 import json
 import sys
-import difflib
 from pathlib import Path
 from datetime import datetime
 
 import ipfsapi
-from ipvc.common import CommonAPI, refpath_to_mfs, print_changes, atomic
+from ipvc.common import CommonAPI, print_changes, atomic
 
 
 class StageAPI(CommonAPI):
@@ -120,7 +119,7 @@ class StageAPI(CommonAPI):
 
         metadata_bytes = io.BytesIO(json.dumps(metadata).encode('utf-8'))
         self.ipfs.files_write(
-            f'{mfs_head}/metadata', metadata_bytes, create=True, truncate=True)
+            f'{mfs_head}/commit_metadata', metadata_bytes, create=True, truncate=True)
 
         return True
 
@@ -133,19 +132,4 @@ class StageAPI(CommonAPI):
     @atomic
     def diff(self):
         """ Content diff from head to stage """
-        fs_repo_root, branch = self.common()
-
-        mfs_from_refpath, _ = refpath_to_mfs(Path("@head"))
-        mfs_to_refpath, _ = refpath_to_mfs(Path("@stage"))
-        changes, *_ = self.get_mfs_changes(
-            mfs_from_refpath, mfs_to_refpath)
-        for change in changes:
-            if change['Type'] != 2:
-                continue # only show modifications
-            file1 = self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
-            file2 = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
-            diff = difflib.unified_diff(file1, file2, lineterm='')
-            if not self.quiet:
-                print('\n'.join(list(diff)[:-1]))
-
-        return changes
+        return self._diff(Path('@stage'), Path('@head'), files=False)

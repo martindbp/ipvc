@@ -28,6 +28,9 @@ def test_add():
     ipvc = get_environment()
     ipvc.repo.init()
 
+    with pytest.raises(ValueError):
+        ipvc.stage.add('/notrepo')
+
     testdir = REPO / 'testdir1' / 'testdir2'
     testdir.mkdir(parents=True)
 
@@ -70,6 +73,9 @@ def test_add():
     assert changes[1]['Path'] == 'test_file4'
 
     os.remove(test_file2)
+    changes = ipvc.stage.add(REPO / 'notafolder/')
+    assert isinstance(changes, list) and len(changes) == 0
+
     changes = ipvc.stage.add(test_file2)
     assert isinstance(changes, list) and len(changes) == 1
     assert changes[0]['Type'] == 1

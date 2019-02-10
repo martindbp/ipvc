@@ -54,6 +54,13 @@ CORRECT="Staged:
 No unstaged changes"
 run_test
 
+COMMAND="ipvc stage diff"
+CORRECT="--- /dev/null
++++ myfile.txt
+@@ -0,0 +1,2 @@
++hello world"
+run_test
+
 #Commit the staged changes
 ipvc stage commit "My first commit"
 
@@ -63,6 +70,7 @@ CORRECT="My first commit"
 run_test_like
 
 #Make a change to myfile.txt
+echo "Sleeping 1 second"
 sleep 1
 echo "dont panic" > myfile.txt
 COMMAND="ipvc stage add myfile.txt"
@@ -70,10 +78,9 @@ CORRECT="Changes:
 QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o --> QmbG1mR6m7KeJ3z2MB3t85VXxHUhD65kw3Yw3hGzStyEcW"
 run_test
 
-#See what changed
 COMMAND="ipvc stage diff"
-CORRECT="--- 
-+++ 
+CORRECT="--- myfile.txt
++++ myfile.txt
 @@ -1,2 +1,2 @@
 -hello world
 +dont panic"
@@ -92,6 +99,19 @@ COMMAND="ipvc branch ls"
 CORRECT="master
 my_new_branch"
 run_test
+
+COMMAND="ipvc branch history"
+CORRECT="My first commit"
+run_test_like
+
+rm myfile.txt
+COMMAND="ipvc diff"
+CORRECT="--- myfile.txt
++++ /dev/null
+@@ -1,2 +0,0 @@
+-hello world"
+run_test
+
 
 COMMAND="ipvc repo rm"
 CORRECT="Repository successfully removed"

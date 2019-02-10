@@ -6,7 +6,7 @@ import webbrowser
 from pathlib import Path
 
 import ipfsapi
-from ipvc.common import CommonAPI, expand_ref, refpath_to_mfs, make_len, atomic
+from ipvc.common import CommonAPI, expand_ref, make_len, atomic
 
 class BranchAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
@@ -22,6 +22,7 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def create(self, name, from_commit="@head", no_checkout=False):
+        self._branches = None
         _, branch = self.common()
 
         if not name.replace('_', '').isalnum():
@@ -86,30 +87,31 @@ class BranchAPI(CommonAPI):
     def _load_ref_into_repo(self, fs_repo_root, branch, ref,
                             without_timestamps=False):
         """ Syncs the fs workspace with the files in ref """
-        metadata = self.read_metadata(ref)
+        files_metadata = self.read_files_metadata(ref)
         added, removed, modified = self.workspace_changes(
-            fs_repo_root, metadata, update_meta=False)
+            fs_repo_root, fs_repo_root, files_metadata, update_meta=False)
 
-        mfs_refpath, _ = refpath_to_mfs(Path(f'@{ref}'))
+        _, mfs_refpath, _ = self.refpath_to_mfs(Path(f'@{ref}'))
 
         for path in added:
-            os.remove(path)
+            os.remove(fs_repo_root / path)
 
         for path in removed | modified:
             mfs_path = self.get_mfs_path(
                 fs_repo_root, branch,
-                branch_info=(mfs_refpath / path.relative_to(fs_repo_root)))
+                branch_info=(mfs_refpath / path))
 
-            timestamp = metadata[str(path)]['timestamp']
+            timestamp = files_metadata[str(path)]['timestamp']
 
-            with open(path, 'wb') as f:
+            with open(fs_repo_root / path, 'wb') as f:
                 f.write(self.ipfs.files_read(mfs_path))
 
-            os.utime(path, ns=(timestamp, timestamp))
+            os.utime(fs_repo_root / path, ns=(timestamp, timestamp))
 
     @atomic
     def checkout(self, name, without_timestamps=False):
         """ Checks out a branch"""
+        self._branches = None
         fs_repo_root, _ = self.common()
 
         try:
@@ -131,16 +133,16 @@ class BranchAPI(CommonAPI):
     def get_parent_commit(self, commit_hash):
         try:
             commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
-            metadata = self.get_commit_metadata(commit_hash)
-            return commit_hash, metadata
+            commit_metadata = self.get_commit_metadata(commit_hash)
+            return commit_hash, commit_metadata
         except ipfsapi.exceptions.StatusError:
             # Reached the root of the graph
             return None, None
 
     def get_commit_metadata(self, commit_hash):
-        # NOTE: the root commit doesn't have a metadata file, so this
+        # NOTE: the root commit doesn't have a commit_metadata file, so this
         # might fail
-        return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/metadata').decode('utf-8'))
+        return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/commit_metadata').decode('utf-8'))
 
     @atomic
     def history(self, show_hash=False):
@@ -153,15 +155,15 @@ class BranchAPI(CommonAPI):
             fs_repo_root, branch, branch_info=Path('head'))
         commit_hash = self.ipfs.files_stat(
             mfs_commit_path)['Hash']
-        metadata = self.get_commit_metadata(commit_hash)
+        commit_metadata = self.get_commit_metadata(commit_hash)
 
         commits = []
         while True:
             commit_files_hash = self.ipfs.files_stat(
                 f'/ipfs/{commit_hash}/bundle/files')['Hash']
 
-            h, ts, msg = commit_hash[:6], metadata['timestamp'], metadata['message']
-            auth = make_len(metadata['author'] or '', 30)
+            h, ts, msg = commit_hash[:6], commit_metadata['timestamp'], commit_metadata['message']
+            auth = make_len(commit_metadata['author'] or '', 30)
             if not self.quiet: 
                 if show_hash:
                     print(f'* {commit_files_hash} {ts} {auth}   {msg}')
@@ -169,36 +171,31 @@ class BranchAPI(CommonAPI):
                     print(f'* {ts} {auth}   {msg}')
 
             commits.append(commit_hash)
-            commit_hash, metadata = self.get_parent_commit(commit_hash)
+            commit_hash, commit_metadata = self.get_parent_commit(commit_hash)
             if commit_hash is None:
                 # Reached the root
                 break
 
         return commits
 
-            try:
-                commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
-            except ipfsapi.exceptions.StatusError:
-                # Reached the root of the graph
                 break
 
-        return commits
 
     @atomic
     def show(self, refpath, browser=False):
         """ Opens a ref in the ipfs file browser """
-        commit_hash = self.get_refpath_hash(refpath)
+        commit_files_hash = self.get_refpath_files_hash(refpath)
         if browser:
             # TODO: read IPFS node url from settings
-            url = f'http://localhost:8080/ipfs/{commit_hash}'
+            url = f'http://localhost:8080/ipfs/{commit_files_hash}'
             if not self.quiet: print(f'Opening {url}')
             webbrowser.open(url)
         else:
-            ret = self.ipfs.ls(f'/ipfs/{commit_hash}')
+            ret = self.ipfs.ls(f'/ipfs/{commit_files_hash}')
             obj = ret['Objects'][0]
             if len(obj['Links']) == 0:
                 # It's a file, so cat it
-                cat = self.ipfs.cat(f'/ipfs/{commit_hash}').decode('utf-8')
+                cat = self.ipfs.cat(f'/ipfs/{commit_files_hash}').decode('utf-8')
                 if not self.quiet:
                     print(cat)
                 return cat
@@ -210,17 +207,18 @@ class BranchAPI(CommonAPI):
                 return ls
 
     @atomic
-    def merge(self, refpath):
-        """ Merge refpath into this branch
-
-        """
-        pass
-
-    @atomic
     def ls(self):
         """ List branches """
-        fs_repo_root = self.get_repo_root()
-        branches = self.get_branches(fs_repo_root)
         if not self.quiet:
-            print('\n'.join(branches))
-        return branches
+            print('\n'.join(self.branches))
+        return self.branches
+
+    @atomic
+    def rm(self):
+        self._branches = None
+
+    @atomic
+    def mv(self):
+        self._branches = None
+
+

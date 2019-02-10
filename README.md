@@ -19,7 +19,7 @@ While there is a [git remote helper for ipfs](https://github.com/magik6k/git-rem
   * Enables sharing the burden of seeding (pinning) large versioned datasets, just like bit-torrent
   * Decentralized publishing using ipns (Inter-Planetary Naming System), no need for a centralized git server (as longs as repostories are pinned (seeded) by anyone else)
   * Easy browsing of commits and repository content using go-ipfs gateway server
-* Similar to gitless, each branch keeps track of its own workspace and the staging index. This allows for switching branches without having to commit or stash changes first. It also means that while being middle of resolving conflicts, you can switch to another branch to do some other work and return to resolve them later
+* Similar to gitless, each branch keeps track of its own workspace and the staging index. This allows for switching branches without having to commit or stash changes first. It also means that while being in the middle of resolving conflicts, you can switch to another branch to do some other work and return to resolve them later
 * Unlike gitless, the staging area is kept the same as in git to allow for gradual building of commits and picking individual lines from certain files
 * Automatically update any hash links in the repository content when a file changes
 * Ability to check out only the parts of a large repository you care about
@@ -112,15 +112,14 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo mv [<from>] <to> - move a repository`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
-* `ipvc branch rm <name>`
-* `ipvc branch mv [<from>] <to>`
+* `//ipvc branch rm <name>`
+* `//ipvc branch mv [<from>] <to>`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
-* `//ipvc branch merge <refpath> # analagous to git merge`
-* `//ipvc branch replay <refpath> # analagous to git rebase`
-* `//ipvc branch publish [--all] # publish branch to ipns`
+* `//ipvc branch pull <refpath> # analagous to git merge and rebase in one`
+* `//ipvc branch publish [--all] # publish branch to IPNS`
 * `//ipvc branch unpublish [--all]`
 * `ipvc stage # status`
 * `ipvc stage add <path>`
@@ -143,6 +142,7 @@ Note: commands not yet implemented are "commented" out
 ## TODO and Ideas
 In no particular order of importance
 * Optimize! Currently things are way too slow
+* Use aiohttp for async data transfer between ipfs and files
 * Merging/rebase
 * Export/import from/to git/mercurial
 * Picking lines when adding to stage, similar to git's `git add -p`
@@ -154,7 +154,11 @@ In no particular order of importance
 * A server with GUI
 * Encryption of data/commits?
 * Partial branch checkout
-* Use aiohttp for async data transfer between ipfs and files
+* Issues, pull requests, discussions etc via pubsub and CRDTs
+* Generate a browsable static website for a repo like a github project
+* Equivalent of ignore file
+* Specifying ipfs node to communicate with
+* Fix handling of file permissions, so that such changes can be seen and added
 
 ## Testing
 There are two levels of tests, in pytest, and a command line test.
