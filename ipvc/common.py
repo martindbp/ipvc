@@ -560,21 +560,20 @@ class CommonAPI:
             return changes
         else:
             for change in changes:
+                from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
+                              if change['Before'] is not None else [])
+                to_lines = (self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
+                            if change['After'] is not None else [])
+
                 if change['Type'] == 2: # modified
                     from_file_path = change['Path']
                     to_file_path = from_file_path
-                    from_lines = self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
-                    to_lines = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
                 elif change['Type'] == 1: # deleted
                     to_file_path = '/dev/null'
                     from_file_path = change['Path']
-                    to_lines = []
-                    from_lines = self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
                 elif change['Type'] == 0: # added
                     to_file_path = change['Path']
                     from_file_path = '/dev/null'
-                    to_lines = self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
-                    from_lines = []
                 diff = difflib.unified_diff(from_lines, to_lines, lineterm='',
                                             fromfile=from_file_path,
                                             tofile=to_file_path)
