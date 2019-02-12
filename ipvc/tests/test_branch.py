@@ -5,7 +5,48 @@ import pytest
 from pathlib import Path
 
 from ipvc import IPVC
-from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file
+from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file, Profile
+
+def assert_list_equals(l1, l2):
+    for item1, item2 in zip(l1, l2):
+        assert item1 == item2
+
+def test_pull():
+    ipvc = get_environment()
+    ipvc.repo.init()
+    write_file(REPO / 'test_file.txt', 'line1\nline2\nline3\nline4')
+    ipvc.stage.add()
+    ipvc.stage.commit('msg1')
+
+    os.rename(REPO / 'test_file.txt', REPO / 'test_file2.txt')
+    ipvc.diff.run()
+    os.rename(REPO / 'test_file2.txt', REPO / 'test_file.txt')
+
+    ipvc.branch.create('other', no_checkout=True)
+
+    write_file(REPO / 'test_file.txt', 'line1\nother\nline3\nline4')
+    ipvc.stage.add()
+    ipvc.stage.commit('msg2')
+
+    ipvc.branch.checkout('other')
+    write_file(REPO / 'test_file.txt', 'line1\nline2\nblerg\nline4')
+    ipvc.stage.add()
+    ipvc.stage.commit('msg2other')
+    conflict_files = ipvc.branch.pull('master')
+    assert conflict_files == set(['test_file.txt'])
+    correct_lines = [
+        'line1',
+        '>>>>>>> ours',
+        'line2',
+        'blerg',
+        '======= theirs',
+        'other',
+        'line3',
+        '<<<<<<<',
+        'line4'
+    ]
+    file_lines = open(REPO / 'test_file.txt', 'r').read().splitlines()
+    assert_list_equals(file_lines, correct_lines)
 
 
 def test_create_and_checkout():

@@ -520,9 +520,9 @@ class CommonAPI:
 
         return commit_files_hash
 
-    def get_branch_head_hash(self, branch):
+    def get_branch_info_hash(self, branch, info):
         fs_repo_root, _ = self.common()
-        mfs_commit_path = self.get_mfs_path(fs_repo_root, branch=branch, branch_info='head')
+        mfs_commit_path = self.get_mfs_path(fs_repo_root, branch=branch, branch_info=info)
         try:
             commit_hash = self.ipfs.files_stat(mfs_commit_path)['Hash']
         except ipfsapi.exceptions.StatusError:

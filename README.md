@@ -112,8 +112,9 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo mv [<from>] <to> - move a repository`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
-* `//ipvc branch rm <name>`
+* `//ipvc branch rm <branch name>`
 * `//ipvc branch mv [<from>] <to>`
+* `//ipvc branch reset [<path>] # reset workspace at path`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
 * `ipvc branch show <refpath> # shows content of refpath`

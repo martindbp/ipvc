@@ -100,6 +100,14 @@ def main():
         'ls', description='List branches')
     branch_ls_parser.set_defaults(subcommand='ls')
 
+    branch_pull_parser = branch_subparsers.add_parser(
+        'pull', description='Pull changes from "their" branch. By default does tries to merge and create a merge commit')
+    branch_pull_parser.set_defaults(subcommand='pull')
+    branch_pull_parser.add_argument(
+        '-r', '--replay', action='store_true', help='Replay changes from branch on top of current branch')
+    branch_pull_parser.add_argument(
+        'their_branch', nargs='?', help='the name of their branch to pull changes from')
+
     # ------------- STAGE --------------
     stage_parser = subparsers.add_parser(
         'stage', description='Add/remove changes to stage and handle commits')
