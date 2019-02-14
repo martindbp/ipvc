@@ -1,6 +1,4 @@
 import os
-import shutil
-import time
 import pytest
 from pathlib import Path
 
@@ -30,7 +28,13 @@ def test_pull():
 
     ipvc.branch.checkout('other')
     write_file(REPO / 'test_file.txt', 'line1\nline2\nblerg\nline4')
+    with pytest.raises(RuntimeError):
+        ipvc.branch.pull('master')
+
     ipvc.stage.add()
+    with pytest.raises(RuntimeError):
+        ipvc.branch.pull('master')
+
     ipvc.stage.commit('msg2other')
     conflict_files = ipvc.branch.pull('master')
     assert conflict_files == set(['test_file.txt'])

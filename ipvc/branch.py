@@ -208,6 +208,7 @@ class BranchAPI(CommonAPI):
 
         our_commit_hash = self.get_branch_info_hash(branch, 'head')
         our_workspace_hash = self.get_branch_info_hash(branch, 'workspace')
+        our_stage_hash = self.get_branch_info_hash(branch, 'stage')
         their_commit_hash = self.get_branch_info_hash(their_branch, 'head')
 
         # Find the Lowest Common Ancestor
@@ -242,10 +243,20 @@ class BranchAPI(CommonAPI):
 
         our_files_hash = self.ipfs.files_stat(f'/ipfs/{our_commit_hash}/bundle/files')['Hash']
         our_workspace_files_hash = self.ipfs.files_stat(f'/ipfs/{our_workspace_hash}/bundle/files')['Hash']
+        our_stage_files_hash = self.ipfs.files_stat(f'/ipfs/{our_stage_hash}/bundle/files')['Hash']
         their_files_hash = self.ipfs.files_stat(f'/ipfs/{their_commit_hash}/bundle/files')['Hash']
         if replay is False:
+            # Check collisions with stage and workspace changes
+            # NOTE: Check staged changes first since workspace contains changes based
+            # on the staged changes
             our_workspace_file_changes = _get_file_changes(our_workspace_files_hash, our_files_hash)
+            our_stage_file_changes = _get_file_changes(our_stage_files_hash, our_files_hash)
             their_file_changes = _get_file_changes(their_files_hash)
+            stage_conflict_set = our_stage_file_changes.keys() & their_file_changes.keys()
+            if len(stage_conflict_set) > 0:
+                print('Pull conflicts with local staged changes in:', file=sys.stderr)
+                print('\n'.join(list(stage_conflict_set)), file=sys.stderr)
+                raise RuntimeError()
             workspace_conflict_set = our_workspace_file_changes.keys() & their_file_changes.keys()
             if len(workspace_conflict_set) > 0:
                 print('Pull conflicts with local workspace changes in:', file=sys.stderr)
