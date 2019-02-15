@@ -106,8 +106,8 @@ class StageAPI(CommonAPI):
             pass
         self.ipfs.files_cp(mfs_stage, mfs_head)
 
-        # Add parent1 pointer to previous head
-        self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent1')
+        # Add parent pointer to previous head
+        self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
         # Add metadata
         params = self.read_global_params()

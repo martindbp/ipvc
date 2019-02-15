@@ -16,8 +16,8 @@ def expand_ref(ref: str):
             ref.startswith('@stage') or
             ref.startswith('@workspace')):
         ref = ref[1:] # get rid of the @
-        ref = ref.replace('~', '/parent1')
-        ref = ref.replace('^', '/parent2')
+        ref = ref.replace('~', '/parent')
+        ref = ref.replace('^', '/merge_parent')
     elif ref.startswith('@'):
         ref = ref[1:]
     return ref
@@ -141,7 +141,7 @@ class CommonAPI:
         """ Expands a reference to the files location
         Expected behavior:
             "@head~^/myfolder/myfile.txt" ->
-                "head/parent1/parent2/bundle/files/myfolder/myfile.txt"
+                "head/parent/merge_parent/bundle/files/myfolder/myfile.txt"
             "@stage/myfolder/myfile.txt" ->
                 "stage/bundle/files/myfolder/myfile.txt"
             "myfolder/myfile.txt" ->
@@ -443,8 +443,8 @@ class CommonAPI:
         fs_repo_root = self.get_repo_root()
         branch = self.get_active_branch(fs_repo_root)
 
-        _, mfs_refpath_from, _ = self.refpath_to_mfs(f'@{ref_from}' / add_path)
-        _, mfs_refpath_to, _ = self.refpath_to_mfs(f'@{ref_to}' / add_path)
+        _, mfs_refpath_from, _ = self.refpath_to_mfs(Path(f'@{ref_from}') / add_path)
+        _, mfs_refpath_to, _ = self.refpath_to_mfs(Path(f'@{ref_to}') / add_path)
 
         mfs_from_add_path = self.get_mfs_path(
             fs_repo_root, branch, branch_info=mfs_refpath_from)

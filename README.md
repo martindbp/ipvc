@@ -142,6 +142,7 @@ Note: commands not yet implemented are "commented" out
 
 ## TODO and Ideas
 In no particular order of importance
+* Fast forward merges
 * Optimize! Currently things are way too slow
 * Use aiohttp for async data transfer between ipfs and files
 * Merging/rebase

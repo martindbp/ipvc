@@ -13,6 +13,7 @@ def test_pull():
     ipvc = get_environment()
     ipvc.repo.init()
     write_file(REPO / 'test_file.txt', 'line1\nline2\nline3\nline4')
+    write_file(REPO / 'test_file3.txt', 'line1\nline2\nline3\nline4')
     ipvc.stage.add()
     ipvc.stage.commit('msg1')
 
@@ -23,11 +24,14 @@ def test_pull():
     ipvc.branch.create('other', no_checkout=True)
 
     write_file(REPO / 'test_file.txt', 'line1\nother\nline3\nline4')
+    write_file(REPO / 'test_file3.txt', 'line1\nline2\nline3\nline4\nappended')
+    write_file(REPO / 'other_file.txt', 'hello world')
     ipvc.stage.add()
     ipvc.stage.commit('msg2')
 
     ipvc.branch.checkout('other')
     write_file(REPO / 'test_file.txt', 'line1\nline2\nblerg\nline4')
+    write_file(REPO / 'test_file3.txt', 'prepended\nline1\nline2\nline3\nline4')
     with pytest.raises(RuntimeError):
         ipvc.branch.pull('master')
 
@@ -36,8 +40,10 @@ def test_pull():
         ipvc.branch.pull('master')
 
     ipvc.stage.commit('msg2other')
-    conflict_files = ipvc.branch.pull('master')
+    clear_files, merged_files, conflict_files = ipvc.branch.pull('master')
     assert conflict_files == set(['test_file.txt'])
+    assert clear_files == set(['other_file.txt'])
+    assert merged_files == set(['test_file3.txt'])
     correct_lines = [
         'line1',
         '>>>>>>> ours',
@@ -51,6 +57,13 @@ def test_pull():
     ]
     file_lines = open(REPO / 'test_file.txt', 'r').read().splitlines()
     assert_list_equals(file_lines, correct_lines)
+
+    asd = ipvc.stage.diff()
+    as2 = ipvc.diff.run()
+    head_stage, stage_workspace = ipvc.stage.status()
+    # Two fils should be staged (other_file.txt and test_file3.txt)
+    # and one file (test_file.txt) has a conflict and should not be staged
+    assert len(head_stage) == 2 and len(stage_workspace) == 1
 
 
 def test_create_and_checkout():
@@ -128,7 +141,6 @@ def test_create_from():
     ret = ipvc.diff.run()
 
 
-
 def test_history():
     ipvc = get_environment()
     ipvc.repo.init()
@@ -145,7 +157,7 @@ def test_history():
         assert False
 
     try:
-        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/parent1'))
+        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/parent'))
     except:
         assert False
 

@@ -72,8 +72,7 @@ class BranchAPI(CommonAPI):
 
             self.ipfs.files_cp(mfs_commit_path, mfs_head_path)
 
-            # Copy commit bundle to workspace and stage, plus a parent1 link
-            # from stage to head
+            # Copy commit bundle to workspace and stage
             mfs_commit_bundle_path = f'{mfs_commit_path}/bundle'
             mfs_workspace_path = self.get_mfs_path(
                 self.fs_cwd, name, branch_info='workspace/bundle')
@@ -133,7 +132,7 @@ class BranchAPI(CommonAPI):
 
     def get_parent_commit(self, commit_hash):
         try:
-            commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent1')['Hash']
+            commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
             commit_metadata = self.get_commit_metadata(commit_hash)
             return commit_hash, commit_metadata
         except ipfsapi.exceptions.StatusError:
@@ -151,7 +150,7 @@ class BranchAPI(CommonAPI):
         the linear history on the first parents side"""
         fs_repo_root, branch = self.common()
 
-        # Traverse the commits backwards by via the {commit}/parent1/ link
+        # Traverse the commits backwards by via the {commit}/parent/ link
         mfs_commit_path = self.get_mfs_path(
             fs_repo_root, branch, branch_info=Path('head'))
         commit_hash = self.ipfs.files_stat(
@@ -204,6 +203,7 @@ class BranchAPI(CommonAPI):
         5. If manual editing is picked, we pause the replay until user has edited
            files and resumed
         """
+        # TODO: implement fast-forward merges
         fs_repo_root, branch = self.common()
 
         our_commit_hash = self.get_branch_info_hash(branch, 'head')
@@ -265,53 +265,80 @@ class BranchAPI(CommonAPI):
 
             our_file_changes = _get_file_changes(our_files_hash)
 
-            conflict_files = set()
+            merged_files, conflict_files, clear_files = set(), set(), set()
             for filename, their_change in their_file_changes.items():
-                if filename not in our_file_changes: continue
-                our_change = our_file_changes[filename]
-                our_diff = list(_fdiff(our_change))
-                their_diff = list(_fdiff(their_change))
-                diff_diff = list(difflib.ndiff(our_diff, their_diff))
-                diff_diff = [l for l in diff_diff if not l.startswith('?')]
-                lines_in, lines_out = [], []
-                f = open(fs_repo_root / filename, 'w')
                 has_merge_conflict, has_merges = False, False
-                for line in diff_diff:
-                    if line.startswith(' '):
-                        if  len(lines_out) > 0 and len(lines_in) > 0:
-                            has_merge_conflict = True
-                            f.write('>>>>>>> ours\n')
-                            f.write('\n'.join(lines_out) + '\n')
-                            f.write('======= theirs\n')
-                            f.write('\n'.join(lines_in) + '\n')
-                            f.write('<<<<<<<\n')
+                if filename not in our_file_changes:
+                    # Write the file from their change
+                    with open(fs_repo_root / filename, 'wb') as f:
+                        f.write(self.ipfs.cat(f'/ipfs/{their_files_hash}/{filename}'))
+                else:
+                    our_change = our_file_changes[filename]
+                    our_diff = list(_fdiff(our_change))
+                    their_diff = list(_fdiff(their_change))
+                    diff_diff = list(difflib.ndiff(our_diff, their_diff))
+                    diff_diff = [l for l in diff_diff if not l.startswith('?')]
+                    lines_in, lines_out = [], []
+                    f = open(fs_repo_root / filename, 'w')
+                    for line in diff_diff:
+                        if line.startswith(' '):
+                            if  len(lines_out) > 0 and len(lines_in) > 0:
+                                has_merge_conflict = True
+                                f.write('>>>>>>> ours\n')
+                                f.write('\n'.join(lines_out) + '\n')
+                                f.write('======= theirs\n')
+                                f.write('\n'.join(lines_in) + '\n')
+                                f.write('<<<<<<<\n')
+                            else:
+                                # NOTE: one of lines_out/in will be empty
+                                for l in lines_in + lines_out:
+                                    f.write(l + '\n')
+                                has_merges = True
                             lines_in, lines_out = [], []
+                            f.write(line[4:] + '\n')
                         else:
-                            # NOTE: one of lines_out/in will be empty
-                            for l in lines_out + lines_in:
-                                f.write(l[4:] + '\n')
-                            has_merges = True
-                        f.write(line[4:] + '\n')
-                    else:
-                        if line.startswith('+ + ') or line.startswith('+   '):
-                            # Difflines that start with + come in from their commit,
-                            # use only the ones starting with + or space, meaning they
-                            # were added or unmodified
-                            lines_in.append(line[4:])
-                        elif line.startswith('- + ') or line.startswith('-   '):
-                            # Similarly, the lines coming from our commit are the
-                            # ones removed in the diff (leading minus), but present
-                            # in the original diff (+ or space)
-                            lines_out.append(line[4:])
-                f.close()
+                            if line.startswith('+ + ') or line.startswith('+   '):
+                                # Difflines that start with + come in from their commit,
+                                # use only the ones starting with + or space, meaning they
+                                # were added or unmodified
+                                lines_in.append(line[4:])
+                            elif line.startswith('- + ') or line.startswith('-   '):
+                                # Similarly, the lines coming from our commit are the
+                                # ones removed in the diff (leading minus), but present
+                                # in the original diff (+ or space)
+                                lines_out.append(line[4:])
+
+                    # Write the left over lines if there are any
+                    for l in lines_in + lines_out:
+                        f.write(l + '\n')
+                    f.close()
+
+                if not has_merge_conflict:
+                    # Add the file to workspace, and then to stage
+                    self.add_fs_to_mfs(fs_repo_root / filename, 'workspace')
+                    self.add_ref_changes_to_ref('workspace', 'stage', filename)
+
                 if has_merge_conflict:
                     print(f'Merge conflict in {filename}')
                     conflict_files.add(filename)
                 elif has_merges:
-                    print('Successfully merged {filename}')
+                    print(f'Successfully merged {filename}')
+                    merged_files.add(filename)
+                else:
+                    clear_files.add(filename)
+
             if len(conflict_files) > 0:
-                print('Pull produced merge conflicts and commit or run `ipvc branch reset <path>`')
-            return conflict_files
+                print(('Pull produced merge conflicts. Edit the conflicts and '
+                       'commit, or run `ipvc branch pull --abort` to abort'))
+            else:
+                print(('Pull merge successful. Commit with a merge message or '
+                       'run `ipvc branch pull --abort` to abort'))
+
+            # Save their commit as the merge_parent
+            mfs_merge_parent = self.get_mfs_path(self.fs_cwd, repo_info='merge_parent')
+            self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
+
+            return clear_files, merged_files, conflict_files
         else:
             pass
 
