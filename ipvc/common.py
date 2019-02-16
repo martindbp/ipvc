@@ -128,7 +128,8 @@ def atomic(api_method):
 
 
 class CommonAPI:
-    def __init__(self, _ipfs, _fs_cwd, _namespace='/', quiet=False, verbose=False):
+    def __init__(self, _ipvc, _ipfs, _fs_cwd, _namespace='/', quiet=False, verbose=False):
+        self.ipvc = _ipvc
         self.ipfs = _ipfs
         self.fs_cwd = _fs_cwd
         self.namespace = Path(_namespace)

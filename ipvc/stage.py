@@ -26,7 +26,7 @@ class StageAPI(CommonAPI):
                 raise
 
     def _notify_pull_merge(self, fs_repo_root, branch):
-        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, repo_info='merge_parent')
+        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
         try:
             self.ipfs.files_stat(mfs_merge_parent)
             if not self.quiet:
@@ -116,17 +116,35 @@ class StageAPI(CommonAPI):
             self.ipfs.files_rm(mfs_head, recursive=True)
         except ipfsapi.exceptions.StatusError:
             pass
+
         self.ipfs.files_cp(mfs_stage, mfs_head)
 
         # Add parent pointer to previous head
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
+
+        # Add merge_parent to merged head if this was a merge commit
+        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
+        is_merge = False
+        try:
+            self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
+            mfs_merge_stage_backup = self.get_mfs_path(
+                fs_repo_root, branch, branch_info='merge_stage_backup')
+            mfs_merge_workspace_backup = self.get_mfs_path(
+                fs_repo_root, branch, branch_info='merge_workspace_backup')
+            self.ipfs.files_rm(mfs_merge_parent, recursive=True)
+            self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
+            self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
+            is_merge = True
+        except:
+            pass
 
         # Add metadata
         params = self.read_global_params()
         metadata = {
             'message': message,
             'author': params.get('author', None),
-            'timestamp': datetime.utcnow().isoformat()
+            'timestamp': datetime.utcnow().isoformat(),
+            'is_merge': is_merge
         }
 
         metadata_bytes = io.BytesIO(json.dumps(metadata).encode('utf-8'))

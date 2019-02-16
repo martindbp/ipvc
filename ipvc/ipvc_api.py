@@ -20,7 +20,7 @@ class IPVC:
             print("Couldn't connect to ipfs, is it running?", file=sys.stderr)
             exit(1)
 
-        args = (self.ipfs, cwd, namespace, quiet, verbose)
+        args = (self, self.ipfs, cwd, namespace, quiet, verbose)
         self.repo = RepoAPI(*args)
         self.stage = StageAPI(*args)
         self.branch = BranchAPI(*args)

@@ -84,6 +84,14 @@ def test_pull():
     assert open(REPO / 'test_file.txt', 'r').read() == 'line1\nline2\nblerg\nline4'
     assert open(REPO / 'test_file3.txt', 'r').read() == 'prepended\nline1\nline2\nline3\nline4'
 
+    # Pull again and fix the merge and commit this time
+    ipvc.branch.pull('master')
+
+    ipvc.stage.add(REPO / 'test_file.txt')
+    ipvc.stage.commit('msg')
+    # Latest commit must have a merge parent
+    assert ipvc.branch.history()[0][-1] is not None
+
 
 def test_create_and_checkout():
     ipvc = get_environment()

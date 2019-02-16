@@ -130,14 +130,21 @@ class BranchAPI(CommonAPI):
         self._load_ref_into_repo(
             fs_repo_root, name, 'workspace', without_timestamps)
 
-    def get_parent_commit(self, commit_hash):
+    def get_commit_parents(self, commit_hash):
+        """ Returns hash and metadata of parent commit and merge parent (if present) """
         try:
-            commit_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
-            commit_metadata = self.get_commit_metadata(commit_hash)
-            return commit_hash, commit_metadata
+            parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
+            parent_metadata = self.get_commit_metadata(commit_hash)
         except ipfsapi.exceptions.StatusError:
             # Reached the root of the graph
-            return None, None
+            return None, None, None, None
+
+        try:
+            merge_parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/merge_parent')['Hash']
+            merge_parent_metadata = self.get_commit_metadata(commit_hash)
+            return parent_hash, parent_metadata, merge_parent_hash, merge_parent_metadata
+        except:
+            return parent_hash, parent_metadata, None, None
 
     def get_commit_metadata(self, commit_hash):
         # NOTE: the root commit doesn't have a commit_metadata file, so this
@@ -159,22 +166,22 @@ class BranchAPI(CommonAPI):
 
         commits = []
         while True:
-            commit_files_hash = self.ipfs.files_stat(
-                f'/ipfs/{commit_hash}/bundle/files')['Hash']
-
             h, ts, msg = commit_hash[:6], commit_metadata['timestamp'], commit_metadata['message']
             auth = make_len(commit_metadata['author'] or '', 30)
             if not self.quiet: 
                 if show_hash:
-                    print(f'* {commit_files_hash} {ts} {auth}   {msg}')
+                    print(f'* {commit_hash} {ts} {auth}   {msg}')
                 else:
                     print(f'* {ts} {auth}   {msg}')
 
-            commits.append(commit_hash)
-            commit_hash, commit_metadata = self.get_parent_commit(commit_hash)
+            parent_hash, parent_metadata, merge_parent_hash, _ = self.get_commit_parents(commit_hash)
+
+            commit_hash = parent_hash
             if commit_hash is None:
                 # Reached the root
                 break
+
+            commits.append((commit_hash, parent_hash, merge_parent_hash))
 
         return commits
 
@@ -238,6 +245,7 @@ class BranchAPI(CommonAPI):
             # Remove backups
             self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
             self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
+            return
 
         our_commit_hash = self.get_branch_info_hash(branch, 'head')
         our_workspace_hash = self.get_branch_info_hash(branch, 'workspace')
@@ -250,8 +258,8 @@ class BranchAPI(CommonAPI):
         our_set = set([curr_our_hash])
         their_set = set([curr_their_hash])
         while curr_our_hash not in their_set and curr_their_hash not in our_set:
-            curr_our_hash, _ = self.get_parent_commit(curr_our_hash)
-            curr_their_hash, _ = self.get_parent_commit(curr_their_hash)
+            curr_our_hash, *_ = self.get_commit_parents(curr_our_hash)
+            curr_their_hash, *_ = self.get_commit_parents(curr_their_hash)
             our_set.add(curr_our_hash)
             their_set.add(curr_their_hash)
             if curr_our_hash is None or curr_their_hash is None:
