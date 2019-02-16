@@ -12,8 +12,9 @@ def assert_list_equals(l1, l2):
 def test_pull():
     ipvc = get_environment()
     ipvc.repo.init()
-    write_file(REPO / 'test_file.txt', 'line1\nline2\nline3\nline4')
-    write_file(REPO / 'test_file3.txt', 'line1\nline2\nline3\nline4')
+    test_file_content = 'line1\nline2\nline3\nline4'
+    write_file(REPO / 'test_file.txt', test_file_content)
+    write_file(REPO / 'test_file3.txt', test_file_content)
     ipvc.stage.add()
     ipvc.stage.commit('msg1')
 
@@ -69,9 +70,19 @@ def test_pull():
                        merged_lines)
 
     head_stage, stage_workspace = ipvc.stage.status()
-    # Two fils should be staged (other_file.txt and test_file3.txt)
+    # Two files should be staged (other_file.txt and test_file3.txt)
     # and one file (test_file.txt) has a conflict and should not be staged
     assert len(head_stage) == 2 and len(stage_workspace) == 1
+
+    ipvc.branch.pull(abort=True)
+    head_stage, stage_workspace = ipvc.stage.status()
+    assert len(head_stage) == 0 and len(stage_workspace) == 0
+
+    with pytest.raises(FileNotFoundError):
+        (REPO / 'other_file.txt').stat()
+
+    assert open(REPO / 'test_file.txt', 'r').read() == 'line1\nline2\nblerg\nline4'
+    assert open(REPO / 'test_file3.txt', 'r').read() == 'prepended\nline1\nline2\nline3\nline4'
 
 
 def test_create_and_checkout():

@@ -25,6 +25,17 @@ class StageAPI(CommonAPI):
                     print(f'Path outside workspace {fs_path}', file=sys.stderr)
                 raise
 
+    def _notify_pull_merge(self, fs_repo_root, branch):
+        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, repo_info='merge_parent')
+        try:
+            self.ipfs.files_stat(mfs_merge_parent)
+            if not self.quiet:
+                print(('NOTE: you are in the merge conflict state, the next '
+                       'commit will be the merge commit. To abort merge, run '
+                       '`ipvc branch pull --abort`\n'))
+        except:
+            pass
+
     @atomic
     def add(self, fs_paths=None):
         """ Add the path to ipfs, and replace the stage files at that path with
@@ -68,6 +79,7 @@ class StageAPI(CommonAPI):
     def status(self):
         """ Show diff between workspace and stage, and between stage and head """
         fs_repo_root, branch = self.common()
+        self._notify_pull_merge(fs_repo_root, branch)
 
         head_stage_changes, *_ = self.get_mfs_changes(
             'head/bundle/files', 'stage/bundle/files')
@@ -132,4 +144,6 @@ class StageAPI(CommonAPI):
     @atomic
     def diff(self):
         """ Content diff from head to stage """
+        fs_repo_root, branch = self.common()
+        self._notify_pull_merge(fs_repo_root, branch)
         return self._diff(Path('@stage'), Path('@head'), files=False)

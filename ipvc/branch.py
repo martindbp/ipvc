@@ -179,7 +179,7 @@ class BranchAPI(CommonAPI):
         return commits
 
     @atomic
-    def pull(self, their_branch, replay=False):
+    def pull(self, their_branch=None, replay=False, abort=False):
         """ Pulls changes from `their_branch` since the last common parent
         By default, tries to merge the two branches and create a merge commit.
         If replay is True, then try to "replay" the commits from `their_branch`
@@ -205,6 +205,39 @@ class BranchAPI(CommonAPI):
         """
         # TODO: implement fast-forward merges
         fs_repo_root, branch = self.common()
+
+        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
+        mfs_merge_stage_backup = self.get_mfs_path(
+            fs_repo_root, branch, branch_info='merge_stage_backup')
+        mfs_merge_workspace_backup = self.get_mfs_path(
+            fs_repo_root, branch, branch_info='merge_workspace_backup')
+
+        if abort:
+            try:
+                # Check that merge_parent is there, otherwise it will raise
+                self.ipfs.files_rm(mfs_merge_parent, recursive=True)
+            except:
+                print('There is no pull merge in progress', file=sys.stderr)
+                raise RuntimeError()
+
+            # Reset workspace and stage
+            mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
+            self.ipfs.files_rm(mfs_stage, recursive=True)
+            self.ipfs.files_cp(
+                mfs_merge_stage_backup,
+                mfs_stage)
+            mfs_workspace = self.get_mfs_path(fs_repo_root, branch, branch_info='workspace')
+            self.ipfs.files_rm(mfs_workspace, recursive=True)
+            self.ipfs.files_cp(
+                mfs_merge_workspace_backup,
+                mfs_workspace)
+            # Load the workspace backup back into the repo
+            self._load_ref_into_repo(
+                fs_repo_root, branch, 'workspace')
+
+            # Remove backups
+            self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
+            self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
 
         our_commit_hash = self.get_branch_info_hash(branch, 'head')
         our_workspace_hash = self.get_branch_info_hash(branch, 'workspace')
@@ -335,8 +368,10 @@ class BranchAPI(CommonAPI):
                        'run `ipvc branch pull --abort` to abort'))
 
             # Save their commit as the merge_parent
-            mfs_merge_parent = self.get_mfs_path(self.fs_cwd, repo_info='merge_parent')
             self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
+            # Save backup of previous stage and workspace
+            self.ipfs.files_cp(f'/ipfs/{our_workspace_hash}', mfs_merge_workspace_backup)
+            self.ipfs.files_cp(f'/ipfs/{our_stage_hash}', mfs_merge_stage_backup)
 
             return pulled_files, merged_files, conflict_files
         else:
