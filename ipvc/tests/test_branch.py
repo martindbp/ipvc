@@ -17,10 +17,6 @@ def test_pull():
     ipvc.stage.add()
     ipvc.stage.commit('msg1')
 
-    os.rename(REPO / 'test_file.txt', REPO / 'test_file2.txt')
-    ipvc.diff.run()
-    os.rename(REPO / 'test_file2.txt', REPO / 'test_file.txt')
-
     ipvc.branch.create('other', no_checkout=True)
 
     write_file(REPO / 'test_file.txt', 'line1\nother\nline3\nline4')
@@ -40,11 +36,11 @@ def test_pull():
         ipvc.branch.pull('master')
 
     ipvc.stage.commit('msg2other')
-    clear_files, merged_files, conflict_files = ipvc.branch.pull('master')
+    pulled_files, merged_files, conflict_files = ipvc.branch.pull('master')
     assert conflict_files == set(['test_file.txt'])
-    assert clear_files == set(['other_file.txt'])
+    assert pulled_files == set(['other_file.txt'])
     assert merged_files == set(['test_file3.txt'])
-    correct_lines = [
+    conflict_lines = [
         'line1',
         '>>>>>>> ours',
         'line2',
@@ -55,11 +51,23 @@ def test_pull():
         '<<<<<<<',
         'line4'
     ]
-    file_lines = open(REPO / 'test_file.txt', 'r').read().splitlines()
-    assert_list_equals(file_lines, correct_lines)
+    pulled_lines = ['hello world']
+    merged_lines = [
+        'prepended',
+        'line1',
+        'line2',
+        'line3',
+        'line4',
+        'appended'
+    ]
 
-    asd = ipvc.stage.diff()
-    as2 = ipvc.diff.run()
+    assert_list_equals(open(REPO / 'test_file.txt', 'r').read().splitlines(),
+                       conflict_lines)
+    assert_list_equals(open(REPO / 'other_file.txt', 'r').read().splitlines(),
+                       pulled_lines)
+    assert_list_equals(open(REPO / 'test_file3.txt', 'r').read().splitlines(),
+                       merged_lines)
+
     head_stage, stage_workspace = ipvc.stage.status()
     # Two fils should be staged (other_file.txt and test_file3.txt)
     # and one file (test_file.txt) has a conflict and should not be staged
