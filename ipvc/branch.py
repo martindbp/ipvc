@@ -265,7 +265,7 @@ class BranchAPI(CommonAPI):
 
             our_file_changes = _get_file_changes(our_files_hash)
 
-            merged_files, conflict_files, clear_files = set(), set(), set()
+            merged_files, conflict_files, pulled_files = set(), set(), set()
             for filename, their_change in their_file_changes.items():
                 has_merge_conflict, has_merges = False, False
                 if filename not in our_file_changes:
@@ -325,7 +325,7 @@ class BranchAPI(CommonAPI):
                     print(f'Successfully merged {filename}')
                     merged_files.add(filename)
                 else:
-                    clear_files.add(filename)
+                    pulled_files.add(filename)
 
             if len(conflict_files) > 0:
                 print(('Pull produced merge conflicts. Edit the conflicts and '
@@ -338,7 +338,7 @@ class BranchAPI(CommonAPI):
             mfs_merge_parent = self.get_mfs_path(self.fs_cwd, repo_info='merge_parent')
             self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
 
-            return clear_files, merged_files, conflict_files
+            return pulled_files, merged_files, conflict_files
         else:
             pass
 
