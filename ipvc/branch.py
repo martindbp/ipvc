@@ -134,14 +134,14 @@ class BranchAPI(CommonAPI):
         """ Returns hash and metadata of parent commit and merge parent (if present) """
         try:
             parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
-            parent_metadata = self.get_commit_metadata(commit_hash)
+            parent_metadata = self.get_commit_metadata(parent_hash )
         except ipfsapi.exceptions.StatusError:
             # Reached the root of the graph
             return None, None, None, None
 
         try:
             merge_parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/merge_parent')['Hash']
-            merge_parent_metadata = self.get_commit_metadata(commit_hash)
+            merge_parent_metadata = self.get_commit_metadata(merge_parent_hash)
             return parent_hash, parent_metadata, merge_parent_hash, merge_parent_metadata
         except:
             return parent_hash, parent_metadata, None, None
@@ -154,7 +154,10 @@ class BranchAPI(CommonAPI):
     @atomic
     def history(self, show_hash=False):
         """ Shows the commit history for the current branch. Currently only shows
-        the linear history on the first parents side"""
+        the linear history on the first parents side
+        Returns list of commits in order from last to first, as a tuple
+        of commit hash, parent hash and merge parent hash
+        """
         fs_repo_root, branch = self.common()
 
         # Traverse the commits backwards by via the {commit}/parent/ link
@@ -176,17 +179,17 @@ class BranchAPI(CommonAPI):
 
             parent_hash, parent_metadata, merge_parent_hash, _ = self.get_commit_parents(commit_hash)
 
-            commit_hash = parent_hash
-            if commit_hash is None:
+            if parent_hash is None:
                 # Reached the root
                 break
 
             commits.append((commit_hash, parent_hash, merge_parent_hash))
+            commit_hash, commit_metadata = parent_hash, parent_metadata
 
         return commits
 
     @atomic
-    def pull(self, their_branch=None, replay=False, abort=False):
+    def pull(self, their_branch=None, replay=False, no_fast_forward=False, abort=False):
         """ Pulls changes from `their_branch` since the last common parent
         By default, tries to merge the two branches and create a merge commit.
         If replay is True, then try to "replay" the commits from `their_branch`
@@ -210,9 +213,12 @@ class BranchAPI(CommonAPI):
         5. If manual editing is picked, we pause the replay until user has edited
            files and resumed
         """
-        # TODO: implement fast-forward merges
         fs_repo_root, branch = self.common()
 
+        # Get some paths for later
+        mfs_head = self.get_mfs_path(fs_repo_root, branch, branch_info='head')
+        mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
+        mfs_workspace = self.get_mfs_path(fs_repo_root, branch, branch_info='workspace')
         mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
         mfs_merge_stage_backup = self.get_mfs_path(
             fs_repo_root, branch, branch_info='merge_stage_backup')
@@ -228,12 +234,10 @@ class BranchAPI(CommonAPI):
                 raise RuntimeError()
 
             # Reset workspace and stage
-            mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
             self.ipfs.files_rm(mfs_stage, recursive=True)
             self.ipfs.files_cp(
                 mfs_merge_stage_backup,
                 mfs_stage)
-            mfs_workspace = self.get_mfs_path(fs_repo_root, branch, branch_info='workspace')
             self.ipfs.files_rm(mfs_workspace, recursive=True)
             self.ipfs.files_cp(
                 mfs_merge_workspace_backup,
@@ -253,22 +257,28 @@ class BranchAPI(CommonAPI):
         their_commit_hash = self.get_branch_info_hash(their_branch, 'head')
 
         # Find the Lowest Common Ancestor
-        curr_our_hash = our_commit_hash
-        curr_their_hash = their_commit_hash
-        our_set = set([curr_our_hash])
-        their_set = set([curr_their_hash])
-        while curr_our_hash not in their_set and curr_their_hash not in our_set:
-            curr_our_hash, *_ = self.get_commit_parents(curr_our_hash)
-            curr_their_hash, *_ = self.get_commit_parents(curr_their_hash)
-            our_set.add(curr_our_hash)
-            their_set.add(curr_their_hash)
-            if curr_our_hash is None or curr_their_hash is None:
+        #curr_our_hash = our_commit_hash
+        #curr_their_hash = their_commit_hash
+        our_set = set([our_commit_hash])
+        their_set = set([their_commit_hash])
+        our_queue, their_queue = [our_commit_hash], [their_commit_hash]
+        while len(our_set & their_set) == 0:
+            our_hash, their_hash = our_queue.pop(), their_queue.pop()
+            our_parent, _, our_merge_parent, _ = self.get_commit_parents(our_hash)
+            their_parent, _, their_merge_parent, _ = self.get_commit_parents(their_hash)
+            for h in [our_parent, our_merge_parent]:
+                if h is not None:
+                    our_set.add(h)
+                    our_queue.append(h)
+            for h in [their_parent, their_merge_parent]:
+                if h is not None:
+                    their_set.add(h)
+                    their_queue.append(h)
+            if our_hash is None or their_hash is None:
                 # Reached the root in one of the branches
                 break
 
-        lca_commit_hash = None
-        if curr_our_hash in their_set: lca_commit_hash = curr_our_hash
-        if curr_their_hash in our_set: lca_commit_hash = curr_their_hash
+        lca_commit_hash = (our_set & their_set).pop()
 
         def _fdiff(change):
             from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
@@ -286,24 +296,24 @@ class BranchAPI(CommonAPI):
         our_workspace_files_hash = self.ipfs.files_stat(f'/ipfs/{our_workspace_hash}/bundle/files')['Hash']
         our_stage_files_hash = self.ipfs.files_stat(f'/ipfs/{our_stage_hash}/bundle/files')['Hash']
         their_files_hash = self.ipfs.files_stat(f'/ipfs/{their_commit_hash}/bundle/files')['Hash']
-        if replay is False:
-            # Check collisions with stage and workspace changes
-            # NOTE: Check staged changes first since workspace contains changes based
-            # on the staged changes
-            our_workspace_file_changes = _get_file_changes(our_workspace_files_hash, our_files_hash)
-            our_stage_file_changes = _get_file_changes(our_stage_files_hash, our_files_hash)
-            their_file_changes = _get_file_changes(their_files_hash)
-            stage_conflict_set = our_stage_file_changes.keys() & their_file_changes.keys()
-            if len(stage_conflict_set) > 0:
-                print('Pull conflicts with local staged changes in:', file=sys.stderr)
-                print('\n'.join(list(stage_conflict_set)), file=sys.stderr)
-                raise RuntimeError()
-            workspace_conflict_set = our_workspace_file_changes.keys() & their_file_changes.keys()
-            if len(workspace_conflict_set) > 0:
-                print('Pull conflicts with local workspace changes in:', file=sys.stderr)
-                print('\n'.join(list(workspace_conflict_set)), file=sys.stderr)
-                raise RuntimeError()
+        # Check collisions with stage and workspace changes
+        # NOTE: Check staged changes first since workspace contains changes based
+        # on the staged changes
+        our_workspace_file_changes = _get_file_changes(our_workspace_files_hash, our_files_hash)
+        our_stage_file_changes = _get_file_changes(our_stage_files_hash, our_files_hash)
+        their_file_changes = _get_file_changes(their_files_hash)
+        stage_conflict_set = our_stage_file_changes.keys() & their_file_changes.keys()
+        if len(stage_conflict_set) > 0:
+            print('Pull conflicts with local staged changes in:', file=sys.stderr)
+            print('\n'.join(list(stage_conflict_set)), file=sys.stderr)
+            raise RuntimeError()
+        workspace_conflict_set = our_workspace_file_changes.keys() & their_file_changes.keys()
+        if len(workspace_conflict_set) > 0:
+            print('Pull conflicts with local workspace changes in:', file=sys.stderr)
+            print('\n'.join(list(workspace_conflict_set)), file=sys.stderr)
+            raise RuntimeError()
 
+        if replay is False:
             our_file_changes = _get_file_changes(our_files_hash)
 
             merged_files, conflict_files, pulled_files = set(), set(), set()
@@ -368,18 +378,27 @@ class BranchAPI(CommonAPI):
                 else:
                     pulled_files.add(filename)
 
-            if len(conflict_files) > 0:
-                print(('Pull produced merge conflicts. Edit the conflicts and '
-                       'commit, or run `ipvc branch pull --abort` to abort'))
+            if lca_commit_hash == our_commit_hash and not no_fast_forward:
+                # This is a fast-forward merge, just update the head
+                # The changes from their commit have already been added to workspace and stage
+                # so all that is left to do is to update the head
+                self.ipfs.files_rm(mfs_head, recursive=True)
+                self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_head)
+                if not self.quiet:
+                    print('Performed a fast-forward merge')
             else:
-                print(('Pull merge successful. Commit with a merge message or '
-                       'run `ipvc branch pull --abort` to abort'))
+                if len(conflict_files) > 0:
+                    print(('Pull produced merge conflicts. Edit the conflicts and '
+                           'commit, or run `ipvc branch pull --abort` to abort'))
+                else:
+                    print(('Pull merge successful. Commit with a merge message or '
+                           'run `ipvc branch pull --abort` to abort'))
 
-            # Save their commit as the merge_parent
-            self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
-            # Save backup of previous stage and workspace
-            self.ipfs.files_cp(f'/ipfs/{our_workspace_hash}', mfs_merge_workspace_backup)
-            self.ipfs.files_cp(f'/ipfs/{our_stage_hash}', mfs_merge_stage_backup)
+                # Save their commit as the merge_parent
+                self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
+                # Save backup of previous stage and workspace
+                self.ipfs.files_cp(f'/ipfs/{our_workspace_hash}', mfs_merge_workspace_backup)
+                self.ipfs.files_cp(f'/ipfs/{our_stage_hash}', mfs_merge_stage_backup)
 
             return pulled_files, merged_files, conflict_files
         else:

@@ -104,6 +104,9 @@ def main():
         'pull', description='Pull changes from "their" branch. By default does tries to merge and create a merge commit')
     branch_pull_parser.set_defaults(subcommand='pull')
     branch_pull_parser.add_argument(
+        '-n', '--no-fast-forward', action='store_true',
+        help='Creates a merge commit even where fast-forward merges can be made')
+    branch_pull_parser.add_argument(
         '-a', '--abort', action='store_true', help='Aborts pull, after merge has been attempted')
     branch_pull_parser.add_argument(
         '-r', '--replay', action='store_true', help='Replay changes from branch on top of current branch')

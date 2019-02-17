@@ -104,7 +104,7 @@ class StageAPI(CommonAPI):
 
     @atomic
     def commit(self, message):
-        """ Create a new commit object, and point head to it """
+        """ Creates a new commit with the staged changes and returns new commit hash"""
         fs_repo_root, branch = self.common()
 
         mfs_head = self.get_mfs_path(fs_repo_root, branch, branch_info='head')
@@ -151,7 +151,7 @@ class StageAPI(CommonAPI):
         self.ipfs.files_write(
             f'{mfs_head}/commit_metadata', metadata_bytes, create=True, truncate=True)
 
-        return True
+        return self.ipfs.files_stat(mfs_head)['Hash']
 
     @atomic
     def uncommit(self):
