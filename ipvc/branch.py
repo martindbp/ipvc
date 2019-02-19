@@ -130,7 +130,7 @@ class BranchAPI(CommonAPI):
         self._load_ref_into_repo(
             fs_repo_root, name, 'workspace', without_timestamps)
 
-    def get_commit_parents(self, commit_hash):
+    def _get_commit_parents(self, commit_hash):
         """ Returns hash and metadata of parent commit and merge parent (if present) """
         try:
             parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
@@ -177,40 +177,143 @@ class BranchAPI(CommonAPI):
                 else:
                     print(f'* {ts} {auth}   {msg}')
 
-            parent_hash, parent_metadata, merge_parent_hash, _ = self.get_commit_parents(commit_hash)
-
+            parent_hash, parent_metadata, merge_parent_hash, _ = self._get_commit_parents(commit_hash)
+            commits.append((commit_hash, parent_hash, merge_parent_hash))
             if parent_hash is None:
                 # Reached the root
                 break
 
-            commits.append((commit_hash, parent_hash, merge_parent_hash))
             commit_hash, commit_metadata = parent_hash, parent_metadata
 
         return commits
 
+    def _find_LCA(self, our_commit_hash, their_commit_hash):
+        # Do breadth first search from our and their commits simultaneously
+        # to reduce number of requests to IPFS
+        our_set = set([our_commit_hash])
+        their_set = set([their_commit_hash])
+        our_queue, their_queue = [our_commit_hash], [their_commit_hash]
+        while len(our_set & their_set) == 0:
+            our_hash, their_hash = our_queue.pop(), their_queue.pop()
+            our_parent, _, our_merge_parent, _ = self._get_commit_parents(our_hash)
+            their_parent, _, their_merge_parent, _ = self._get_commit_parents(their_hash)
+            for h in [our_parent, our_merge_parent]:
+                if h is not None:
+                    our_set.add(h)
+                    our_queue.append(h)
+            for h in [their_parent, their_merge_parent]:
+                if h is not None:
+                    their_set.add(h)
+                    their_queue.append(h)
+            if our_hash is None or their_hash is None:
+                # Reached the root in one of the branches
+                break
+
+        return (our_set & their_set).pop()
+
+    def _get_file_changes(self, to_hash, from_hash):
+        changes = self.ipfs_object_diff(from_hash, to_hash)['Changes']
+        return {change['Path']: change for change in changes}
+
+    def _merge(self, our_file_changes, their_file_changes, their_files_hash):
+        """
+        Takes changes from `their_file_changes` and merges them with `our_file_changes`,
+        and writes the merged files to disk, with conflict markers if there are conflicts,
+        stages changes that are conflict free.
+        """
+        def _fdiff(change):
+            from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
+                          if change['Before'] is not None else [])
+            to_lines = (self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
+                        if change['After'] is not None else [])
+            return difflib.ndiff(from_lines, to_lines)
+
+        merged_files, conflict_files, pulled_files = set(), set(), set()
+        for filename, their_change in their_file_changes.items():
+            has_merge_conflict, has_merges = False, False
+            if filename not in our_file_changes:
+                # Write the file from their change
+                with open(self.get_repo_root() / filename, 'wb') as f:
+                    f.write(self.ipfs.cat(f'/ipfs/{their_files_hash}/{filename}'))
+            else:
+                our_change = our_file_changes[filename]
+                our_diff = list(_fdiff(our_change))
+                their_diff = list(_fdiff(their_change))
+                diff_diff = list(difflib.ndiff(our_diff, their_diff))
+                diff_diff = [l for l in diff_diff if not l.startswith('?')]
+                lines_in, lines_out = [], []
+                f = open(self.get_repo_root() / filename, 'w')
+                for line in diff_diff:
+                    if line.startswith(' '):
+                        if  len(lines_out) > 0 and len(lines_in) > 0:
+                            has_merge_conflict = True
+                            f.write('>>>>>>> ours\n')
+                            f.write('\n'.join(lines_out) + '\n')
+                            f.write('======= theirs\n')
+                            f.write('\n'.join(lines_in) + '\n')
+                            f.write('<<<<<<<\n')
+                        else:
+                            # NOTE: one of lines_out/in will be empty
+                            for l in lines_in + lines_out:
+                                f.write(l + '\n')
+                            has_merges = True
+                        lines_in, lines_out = [], []
+                        f.write(line[4:] + '\n')
+                    else:
+                        if line.startswith('+ + ') or line.startswith('+   '):
+                            # Difflines that start with + come in from their commit,
+                            # use only the ones starting with + or space, meaning they
+                            # were added or unmodified
+                            lines_in.append(line[4:])
+                        elif line.startswith('- + ') or line.startswith('-   '):
+                            # Similarly, the lines coming from our commit are the
+                            # ones removed in the diff (leading minus), but present
+                            # in the original diff (+ or space)
+                            lines_out.append(line[4:])
+
+                # Write the left over lines if there are any
+                for l in lines_in + lines_out:
+                    f.write(l + '\n')
+                f.close()
+
+            if not has_merge_conflict:
+                # Add the file to workspace, and then to stage
+                self.add_fs_to_mfs(self.get_repo_root() / filename, 'workspace')
+                self.add_ref_changes_to_ref('workspace', 'stage', filename)
+
+            if has_merge_conflict:
+                print(f'Merge conflict in {filename}')
+                conflict_files.add(filename)
+            elif has_merges:
+                print(f'Successfully merged {filename}')
+                merged_files.add(filename)
+            else:
+                pulled_files.add(filename)
+
+        return merged_files, conflict_files, pulled_files
+
     @atomic
-    def pull(self, their_branch=None, replay=False, no_fast_forward=False, abort=False):
+    def pull(self, their_branch=None, reapply=False, no_fast_forward=False, abort=False):
         """ Pulls changes from `their_branch` since the last common parent
         By default, tries to merge the two branches and create a merge commit.
-        If replay is True, then try to "replay" the commits from `their_branch`
+        If reapply is True, then try to "reapply" the commits from `their_branch`
         onto our branch without creating a merge commit.
 
         For a merge, this is the general procedure:
         1. Get the commits hashes for our branch and `their_branch`
         2. Find the lowest common ancestor of the two commits
         3. Find the diff between LCA and both commits
-        4. If diff doesn't conflict, apply, otherwise give user option to either:
+        4. If diffs don't conflict, apply, otherwise give user option to either:
             1. Keep "ours", "theirs", or "manual editing"
 
-        For replaying commits, the procedure is:
-        1. Create a new temporary branch from the their branch
-        2. Find LCA as with merge
-        3. Now instead of finding the diff for all the changes in both commits,
+        For re-applying commits, the procedure is:
+        1. Find LCA as with merge
+        2. Now instead of finding the diff for all the changes in both commits,
            we first find the diff for the whole their branch, but then we find
            the diff for one commit at a time in our branch.
-        4. For each such commit, if it can be applied without conflict, then apply it
+        3. For each such commit, if it can be applied without conflict, then apply it
            otherwise, ask user same as in step 4 of merge
-        5. If manual editing is picked, we pause the replay until user has edited
+        4. If manual editing is picked, we pause the reapply until user has edited
            files and resumed
         """
         fs_repo_root, branch = self.common()
@@ -257,41 +360,9 @@ class BranchAPI(CommonAPI):
         their_commit_hash = self.get_branch_info_hash(their_branch, 'head')
 
         # Find the Lowest Common Ancestor
-        #curr_our_hash = our_commit_hash
-        #curr_their_hash = their_commit_hash
-        our_set = set([our_commit_hash])
-        their_set = set([their_commit_hash])
-        our_queue, their_queue = [our_commit_hash], [their_commit_hash]
-        while len(our_set & their_set) == 0:
-            our_hash, their_hash = our_queue.pop(), their_queue.pop()
-            our_parent, _, our_merge_parent, _ = self.get_commit_parents(our_hash)
-            their_parent, _, their_merge_parent, _ = self.get_commit_parents(their_hash)
-            for h in [our_parent, our_merge_parent]:
-                if h is not None:
-                    our_set.add(h)
-                    our_queue.append(h)
-            for h in [their_parent, their_merge_parent]:
-                if h is not None:
-                    their_set.add(h)
-                    their_queue.append(h)
-            if our_hash is None or their_hash is None:
-                # Reached the root in one of the branches
-                break
-
-        lca_commit_hash = (our_set & their_set).pop()
-
-        def _fdiff(change):
-            from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
-                          if change['Before'] is not None else [])
-            to_lines = (self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
-                        if change['After'] is not None else [])
-            return difflib.ndiff(from_lines, to_lines)
+        lca_commit_hash = self._find_LCA(our_commit_hash, their_commit_hash)
 
         lca_files_hash = self.ipfs.files_stat(f'/ipfs/{lca_commit_hash}/bundle/files')['Hash']
-        def _get_file_changes(files_hash, from_hash=lca_files_hash):
-            changes = self.ipfs_object_diff(from_hash, files_hash)['Changes']
-            return {change['Path']: change for change in changes}
-
         our_files_hash = self.ipfs.files_stat(f'/ipfs/{our_commit_hash}/bundle/files')['Hash']
         our_workspace_files_hash = self.ipfs.files_stat(f'/ipfs/{our_workspace_hash}/bundle/files')['Hash']
         our_stage_files_hash = self.ipfs.files_stat(f'/ipfs/{our_stage_hash}/bundle/files')['Hash']
@@ -299,9 +370,10 @@ class BranchAPI(CommonAPI):
         # Check collisions with stage and workspace changes
         # NOTE: Check staged changes first since workspace contains changes based
         # on the staged changes
-        our_workspace_file_changes = _get_file_changes(our_workspace_files_hash, our_files_hash)
-        our_stage_file_changes = _get_file_changes(our_stage_files_hash, our_files_hash)
-        their_file_changes = _get_file_changes(their_files_hash)
+        our_workspace_file_changes = self._get_file_changes(our_workspace_files_hash, our_files_hash)
+        our_stage_file_changes = self._get_file_changes(our_stage_files_hash, our_files_hash)
+        their_file_changes = self._get_file_changes(their_files_hash, lca_files_hash)
+        our_file_changes = self._get_file_changes(our_files_hash, lca_files_hash)
         stage_conflict_set = our_stage_file_changes.keys() & their_file_changes.keys()
         if len(stage_conflict_set) > 0:
             print('Pull conflicts with local staged changes in:', file=sys.stderr)
@@ -313,70 +385,9 @@ class BranchAPI(CommonAPI):
             print('\n'.join(list(workspace_conflict_set)), file=sys.stderr)
             raise RuntimeError()
 
-        if replay is False:
-            our_file_changes = _get_file_changes(our_files_hash)
-
-            merged_files, conflict_files, pulled_files = set(), set(), set()
-            for filename, their_change in their_file_changes.items():
-                has_merge_conflict, has_merges = False, False
-                if filename not in our_file_changes:
-                    # Write the file from their change
-                    with open(fs_repo_root / filename, 'wb') as f:
-                        f.write(self.ipfs.cat(f'/ipfs/{their_files_hash}/{filename}'))
-                else:
-                    our_change = our_file_changes[filename]
-                    our_diff = list(_fdiff(our_change))
-                    their_diff = list(_fdiff(their_change))
-                    diff_diff = list(difflib.ndiff(our_diff, their_diff))
-                    diff_diff = [l for l in diff_diff if not l.startswith('?')]
-                    lines_in, lines_out = [], []
-                    f = open(fs_repo_root / filename, 'w')
-                    for line in diff_diff:
-                        if line.startswith(' '):
-                            if  len(lines_out) > 0 and len(lines_in) > 0:
-                                has_merge_conflict = True
-                                f.write('>>>>>>> ours\n')
-                                f.write('\n'.join(lines_out) + '\n')
-                                f.write('======= theirs\n')
-                                f.write('\n'.join(lines_in) + '\n')
-                                f.write('<<<<<<<\n')
-                            else:
-                                # NOTE: one of lines_out/in will be empty
-                                for l in lines_in + lines_out:
-                                    f.write(l + '\n')
-                                has_merges = True
-                            lines_in, lines_out = [], []
-                            f.write(line[4:] + '\n')
-                        else:
-                            if line.startswith('+ + ') or line.startswith('+   '):
-                                # Difflines that start with + come in from their commit,
-                                # use only the ones starting with + or space, meaning they
-                                # were added or unmodified
-                                lines_in.append(line[4:])
-                            elif line.startswith('- + ') or line.startswith('-   '):
-                                # Similarly, the lines coming from our commit are the
-                                # ones removed in the diff (leading minus), but present
-                                # in the original diff (+ or space)
-                                lines_out.append(line[4:])
-
-                    # Write the left over lines if there are any
-                    for l in lines_in + lines_out:
-                        f.write(l + '\n')
-                    f.close()
-
-                if not has_merge_conflict:
-                    # Add the file to workspace, and then to stage
-                    self.add_fs_to_mfs(fs_repo_root / filename, 'workspace')
-                    self.add_ref_changes_to_ref('workspace', 'stage', filename)
-
-                if has_merge_conflict:
-                    print(f'Merge conflict in {filename}')
-                    conflict_files.add(filename)
-                elif has_merges:
-                    print(f'Successfully merged {filename}')
-                    merged_files.add(filename)
-                else:
-                    pulled_files.add(filename)
+        if reapply is False:
+            merged_files, conflict_files, pulled_files = self._merge(
+                our_file_changes, their_file_changes, their_files_hash)
 
             if lca_commit_hash == our_commit_hash and not no_fast_forward:
                 # This is a fast-forward merge, just update the head

@@ -102,7 +102,6 @@ def test_pull():
     # Doesn't have a merge parent
     assert history[0][-1] == None
 
-'''
 
 def test_create_and_checkout():
     ipvc = get_environment()
@@ -210,4 +209,3 @@ def test_history():
 
     assert ipvc.branch.show(Path('@head')) == 'test_file.txt'
     assert ipvc.branch.show(Path('@head/test_file.txt')) == 'hello world'
-'''
