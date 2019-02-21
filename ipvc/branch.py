@@ -15,17 +15,13 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def status(self, name=False):
-        _, branch = self.common()
-        active = self.ipfs.files_read(
-            self.get_mfs_path(self.fs_cwd, repo_info='active_branch_name')).decode('utf-8')
-        if not self.quiet: print(active)
-        return active
+        self.common()
+        if not self.quiet: print(self.active_branch)
+        return self.active_branch
 
     @atomic
     def create(self, name, from_commit="@head", no_checkout=False):
-        self._branches = None
-        _, branch = self.common()
-
+        self.common()
         if not name.replace('_', '').isalnum():
             if not self.quiet:
                 print('Branch name has to be alpha numeric with underscores',
@@ -48,18 +44,20 @@ class BranchAPI(CommonAPI):
         if from_commit == "@head":
             # Simply copy the current branch to the new branch
             self.ipfs.files_cp(
-                self.get_mfs_path(self.fs_cwd, branch),
+                self.get_mfs_path(self.fs_cwd, self.active_branch),
                 self.get_mfs_path(self.fs_cwd, name))
+            self.invalidate_cache(['branches'])
         else:
             # Create the branch directory along with an empty stage and workspace
             for ref in ['stage', 'workspace']:
                 mfs_ref = self.get_mfs_path(self.fs_cwd, name, branch_info=ref)
                 self.ipfs.files_mkdir(mfs_ref, parents=True)
+            self.invalidate_cache(['branches'])
 
             # Copy the commit to the new branch's head
             commit_path = expand_ref(from_commit)
             mfs_commit_path = self.get_mfs_path(
-                self.fs_cwd, branch, branch_info=commit_path)
+                self.fs_cwd, self.active_branch, branch_info=commit_path)
             mfs_head_path = self.get_mfs_path(
                 self.fs_cwd, name, branch_info='head')
 
@@ -111,8 +109,7 @@ class BranchAPI(CommonAPI):
     @atomic
     def checkout(self, name, without_timestamps=False):
         """ Checks out a branch"""
-        self._branches = None
-        fs_repo_root, _ = self.common()
+        self.common()
 
         try:
             self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
@@ -126,15 +123,16 @@ class BranchAPI(CommonAPI):
             self.get_mfs_path(self.fs_cwd, repo_info='active_branch_name'),
             io.BytesIO(bytes(name, 'utf-8')),
             create=True, truncate=True)
+        self.invalidate_cache(['active_branch'])
 
         self._load_ref_into_repo(
-            fs_repo_root, name, 'workspace', without_timestamps)
+            self.fs_repo_root, name, 'workspace', without_timestamps)
 
     def _get_commit_parents(self, commit_hash):
         """ Returns hash and metadata of parent commit and merge parent (if present) """
         try:
             parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
-            parent_metadata = self.get_commit_metadata(parent_hash )
+            parent_metadata = self.get_commit_metadata(parent_hash)
         except ipfsapi.exceptions.StatusError:
             # Reached the root of the graph
             return None, None, None, None
@@ -158,11 +156,11 @@ class BranchAPI(CommonAPI):
         Returns list of commits in order from last to first, as a tuple
         of commit hash, parent hash and merge parent hash
         """
-        fs_repo_root, branch = self.common()
+        self.common()
 
         # Traverse the commits backwards by via the {commit}/parent/ link
         mfs_commit_path = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=Path('head'))
+            self.fs_repo_root, self.active_branch, branch_info=Path('head'))
         commit_hash = self.ipfs.files_stat(
             mfs_commit_path)['Hash']
         commit_metadata = self.get_commit_metadata(commit_hash)
@@ -233,7 +231,7 @@ class BranchAPI(CommonAPI):
             has_merge_conflict, has_merges = False, False
             if filename not in our_file_changes:
                 # Write the file from their change
-                with open(self.get_repo_root() / filename, 'wb') as f:
+                with open(self.fs_repo_root / filename, 'wb') as f:
                     f.write(self.ipfs.cat(f'/ipfs/{their_files_hash}/{filename}'))
             else:
                 our_change = our_file_changes[filename]
@@ -242,7 +240,7 @@ class BranchAPI(CommonAPI):
                 diff_diff = list(difflib.ndiff(our_diff, their_diff))
                 diff_diff = [l for l in diff_diff if not l.startswith('?')]
                 lines_in, lines_out = [], []
-                f = open(self.get_repo_root() / filename, 'w')
+                f = open(self.fs_repo_root / filename, 'w')
                 for line in diff_diff:
                     if line.startswith(' '):
                         if  len(lines_out) > 0 and len(lines_in) > 0:
@@ -278,7 +276,7 @@ class BranchAPI(CommonAPI):
 
             if not has_merge_conflict:
                 # Add the file to workspace, and then to stage
-                self.add_fs_to_mfs(self.get_repo_root() / filename, 'workspace')
+                self.add_fs_to_mfs(self.fs_repo_root / filename, 'workspace')
                 self.add_ref_changes_to_ref('workspace', 'stage', filename)
 
             if has_merge_conflict:
@@ -316,17 +314,19 @@ class BranchAPI(CommonAPI):
         4. If manual editing is picked, we pause the reapply until user has edited
            files and resumed
         """
-        fs_repo_root, branch = self.common()
+        self.common()
+
+        branch = self.active_branch
 
         # Get some paths for later
-        mfs_head = self.get_mfs_path(fs_repo_root, branch, branch_info='head')
-        mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
-        mfs_workspace = self.get_mfs_path(fs_repo_root, branch, branch_info='workspace')
-        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
+        mfs_head = self.get_mfs_path(self.fs_repo_root, branch, branch_info='head')
+        mfs_stage = self.get_mfs_path(self.fs_repo_root, branch, branch_info='stage')
+        mfs_workspace = self.get_mfs_path(self.fs_repo_root, branch, branch_info='workspace')
+        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, branch, branch_info='merge_parent')
         mfs_merge_stage_backup = self.get_mfs_path(
-            fs_repo_root, branch, branch_info='merge_stage_backup')
+            self.fs_repo_root, branch, branch_info='merge_stage_backup')
         mfs_merge_workspace_backup = self.get_mfs_path(
-            fs_repo_root, branch, branch_info='merge_workspace_backup')
+            self.fs_repo_root, branch, branch_info='merge_workspace_backup')
 
         if abort:
             try:
@@ -347,7 +347,7 @@ class BranchAPI(CommonAPI):
                 mfs_workspace)
             # Load the workspace backup back into the repo
             self._load_ref_into_repo(
-                fs_repo_root, branch, 'workspace')
+                self.fs_repo_root, branch, 'workspace')
 
             # Remove backups
             self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
@@ -450,10 +450,10 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def rm(self):
-        self._branches = None
+        self.invalidate_cache(['branches', 'active_branch'])
 
     @atomic
     def mv(self):
-        self._branches = None
+        self.invalidate_cache(['branches', 'active_branch'])
 
 

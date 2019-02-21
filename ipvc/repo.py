@@ -56,6 +56,7 @@ class RepoAPI(CommonAPI):
             path, repo_info='active_branch_name')
         self.ipfs.files_write(
             active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
+        self.invalidate_cache()
 
         self.update_mfs_repo()
 
@@ -95,6 +96,7 @@ class RepoAPI(CommonAPI):
 
         self.ipfs.files_cp(self.get_mfs_path(path1), self.get_mfs_path(path2))
         self.ipfs.files_rm(self.get_mfs_path(path1), recursive=True)
+        self.invalidate_cache()
         return True
 
     @atomic
@@ -113,5 +115,6 @@ class RepoAPI(CommonAPI):
         mfs_repo_root = self.get_mfs_path(fs_repo_root)
         h = self.ipfs.files_stat(mfs_repo_root)['Hash']
         self.ipfs.files_rm(mfs_repo_root, recursive=True)
+        self.invalidate_cache()
         print('Repository successfully removed')
         return True

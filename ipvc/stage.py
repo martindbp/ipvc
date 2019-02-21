@@ -41,10 +41,10 @@ class StageAPI(CommonAPI):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
         """
-        fs_repo_root, branch = self.common()
+        self.common()
         fs_paths = self.fs_cwd if fs_paths is None else fs_paths
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, fs_repo_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, self.fs_repo_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'workspace', 'stage', fs_path_relative)
 
@@ -61,9 +61,9 @@ class StageAPI(CommonAPI):
         """ Add the path to ipfs, and replace the stage files at that path with
         the new hash.
         """
-        fs_repo_root, branch = self.common()
+        self.common()
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, fs_repo_root):
+        for fs_path_relative in self._get_relative_paths(fs_paths, self.fs_repo_root):
             changes = changes + self.add_ref_changes_to_ref(
                 'head', 'stage', fs_path_relative)
 
@@ -78,8 +78,8 @@ class StageAPI(CommonAPI):
     @atomic
     def status(self):
         """ Show diff between workspace and stage, and between stage and head """
-        fs_repo_root, branch = self.common()
-        self._notify_pull_merge(fs_repo_root, branch)
+        self.common()
+        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
 
         head_stage_changes, *_ = self.get_mfs_changes(
             'head/bundle/files', 'stage/bundle/files')
@@ -105,10 +105,10 @@ class StageAPI(CommonAPI):
     @atomic
     def commit(self, message):
         """ Creates a new commit with the staged changes and returns new commit hash"""
-        fs_repo_root, branch = self.common()
+        self.common()
 
-        mfs_head = self.get_mfs_path(fs_repo_root, branch, branch_info='head')
-        mfs_stage = self.get_mfs_path(fs_repo_root, branch, branch_info='stage')
+        mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
+        mfs_stage = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='stage')
         head_hash = self.ipfs.files_stat(mfs_head)['Hash']
 
         # Set head to stage
@@ -123,14 +123,14 @@ class StageAPI(CommonAPI):
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
         # Add merge_parent to merged head if this was a merge commit
-        mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
+        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='merge_parent')
         is_merge = False
         try:
             self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
             mfs_merge_stage_backup = self.get_mfs_path(
-                fs_repo_root, branch, branch_info='merge_stage_backup')
+                self.fs_repo_root, self.active_branch, branch_info='merge_stage_backup')
             mfs_merge_workspace_backup = self.get_mfs_path(
-                fs_repo_root, branch, branch_info='merge_workspace_backup')
+                self.fs_repo_root, self.active_branch, branch_info='merge_workspace_backup')
             self.ipfs.files_rm(mfs_merge_parent, recursive=True)
             self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
             self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
@@ -162,6 +162,6 @@ class StageAPI(CommonAPI):
     @atomic
     def diff(self):
         """ Content diff from head to stage """
-        fs_repo_root, branch = self.common()
-        self._notify_pull_merge(fs_repo_root, branch)
+        self.common()
+        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
         return self._diff(Path('@stage'), Path('@head'), files=False)

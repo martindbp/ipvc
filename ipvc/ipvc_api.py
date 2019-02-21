@@ -26,11 +26,13 @@ class IPVC:
         self.branch = BranchAPI(*args)
         self.diff = DiffAPI(*args)
         self.param = ParamAPI(*args)
+        self._property_cache = {}
 
     def set_cwd(self, cwd):
         assert isinstance(cwd, Path)
-        self.repo.fs_cwd = cwd
-        self.stage.fs_cwd = cwd
-        self.branch.fs_cwd = cwd
-        self.diff.fs_cwd = cwd
-        self.param.fs_cwd = cwd
+        self.repo.set_cwd(cwd)
+        self.stage.set_cwd(cwd)
+        self.branch.set_cwd(cwd)
+        self.diff.set_cwd(cwd)
+        self.param.set_cwd(cwd)
+

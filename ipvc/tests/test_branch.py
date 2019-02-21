@@ -1,13 +1,16 @@
 import os
 import pytest
+import time
 from pathlib import Path
 
 from ipvc import IPVC
 from helpers import NAMESPACE, REPO, REPO2, get_environment, write_file, Profile
 
+
 def assert_list_equals(l1, l2):
     for item1, item2 in zip(l1, l2):
         assert item1 == item2
+
 
 def test_pull():
     ipvc = get_environment()
@@ -20,6 +23,7 @@ def test_pull():
 
     ipvc.branch.create('other', no_checkout=True)
 
+    time.sleep(1) # resolution of modification timestamp is a second
     write_file(REPO / 'test_file.txt', 'line1\nother\nline3\nline4')
     write_file(REPO / 'test_file3.txt', 'line1\nline2\nline3\nline4\nappended')
     write_file(REPO / 'other_file.txt', 'hello world')
@@ -27,6 +31,7 @@ def test_pull():
     ipvc.stage.commit('msg2')
 
     ipvc.branch.checkout('other')
+    time.sleep(1) # resolution of modification timestamp is a second
     write_file(REPO / 'test_file.txt', 'line1\nline2\nblerg\nline4')
     write_file(REPO / 'test_file3.txt', 'prepended\nline1\nline2\nline3\nline4')
     with pytest.raises(RuntimeError):

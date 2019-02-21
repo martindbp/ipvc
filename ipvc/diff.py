@@ -6,4 +6,5 @@ class DiffAPI(CommonAPI):
         super().__init__(*args, **kwargs)
 
     def run(self, to_refpath=Path("@workspace"), from_refpath=Path("@stage"), files=False):
+        self.common()
         return self._diff(to_refpath, from_refpath, files)

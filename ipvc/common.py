@@ -35,31 +35,6 @@ def separate_refpath(refpath: Path):
     return parts[0], Path(*parts[1:])
 
 
-'''
-def go_to_parent(refpath: Path):
-    """ Go to the parent (1) of ref
-    Expected behavior:
-        "@head" -> "@head~"
-        "@head/mydir/ -> "@head~/mydir"
-        "@stage" -> raise exception
-    """
-    pass
-
-
-def transfer_ref_to_ref(refpath_from: Path, refpath_to: Path):
-    """ Transfer the files part from `ref_from` `to ref_to`
-    Expected behavior:
-        ref_from            ref_to            result
-        "@head~/myfolder"    "@stage"           "@stage/myfolder"
-        "@head/myfile.txt"   "@head~~"          "@head~~/myfile.txt"
-        "@head"              "@head~~"          "@head~~"
-        "@head/myfile.txt"   "@head~/myfolder/" raise exception
-        "@head/f/myfile.txt" "@stage/f/"        "@stage/f/myfile.txt"
-    """
-    pass
-'''
-
-
 def print_changes(changes):
     for change in changes:
         type_ = change['Type']
@@ -78,6 +53,28 @@ def print_changes(changes):
 def make_len(string, num):
     string = string[:num]
     return string + ' '*(num-len(string))
+
+
+# NOTE: set this variable to True to test that cached properties
+#       are cached correctly
+TEST_CACHING = False
+def cached_property(prop):
+    @wraps(prop)
+    def _impl(self, *args, **kwargs):
+        name = prop.__name__
+        if name not in self.ipvc._property_cache:
+            self.ipvc._property_cache[name] = prop(self, *args, **kwargs)
+
+        if TEST_CACHING:
+            correct = prop(self, *args, **kwargs)
+            if correct != self.ipvc._property_cache[name]:
+                print('Cache error: ', correct, self.ipvc._property_cache[name])
+                import pdb; pdb.set_trace()
+            return correct
+        else:
+            return self.ipvc._property_cache[name]
+
+    return _impl
 
 
 def atomic(api_method):
@@ -135,8 +132,17 @@ class CommonAPI:
         self.namespace = Path(_namespace)
         self.quiet = quiet
         self.verbose = verbose
-        self._branches = None
         self._in_atomic_operation = False
+
+    def invalidate_cache(self, props=None):
+        if props is None:
+            self.ipvc._property_cache = {}
+            return
+
+        for prop in props:
+            if prop in self.ipvc._property_cache:
+                del self.ipvc._property_cache[prop]
+
 
     def refpath_to_mfs(self, refpath: Path):
         """ Expands a reference to the files location
@@ -187,7 +193,7 @@ class CommonAPI:
             return path / repo_info
         if branch is None:
             if branch_info is not None:
-                branch = self.get_active_branch(fs_repo_root)
+                branch = self.active_branch
             else:
                 return path
         path = path / 'branches' / branch
@@ -207,6 +213,11 @@ class CommonAPI:
         ret['Changes'] = changes
         return ret
 
+    @property
+    @cached_property
+    def active_branch(self):
+        return self.get_active_branch(self.fs_repo_root)
+
     def get_active_branch(self, fs_repo_root):
         mfs_branch = self.get_mfs_path(
             fs_repo_root, repo_info='active_branch_name')
@@ -214,15 +225,12 @@ class CommonAPI:
         return branch
 
     @property
+    @cached_property
     def branches(self):
-        if self._branches is not None:
-            return self._branches
-        fs_repo_root = self.get_repo_root()
         mfs_branches_path = self.get_mfs_path(
-            fs_repo_root, repo_info='branches')
+            self.fs_repo_root, repo_info='branches')
         ls_ret = self.ipfs.files_ls(mfs_branches_path)
-        self._branches = [entry['Name'] for entry in ls_ret['Entries']]
-        return self._branches
+        return [entry['Name'] for entry in ls_ret['Entries']]
 
     def list_repo_paths(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
@@ -237,6 +245,15 @@ class CommonAPI:
                 yield repo_hash, fs_repo_path
         except ipfsapi.exceptions.StatusError:
             return
+
+    def set_cwd(self, cwd):
+        self.fs_cwd = cwd
+        self.invalidate_cache()
+
+    @property
+    @cached_property
+    def fs_repo_root(self):
+        return self.get_repo_root()
 
     def get_repo_root(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
@@ -295,10 +312,8 @@ class CommonAPI:
         self.ipfs.files_write(path, data_bytes, create=True, truncate=True)
 
     def get_metadata_file(self, ref):
-        fs_repo_root = self.get_repo_root()
-        branch = self.get_active_branch(fs_repo_root)
         return self.get_mfs_path(
-            fs_repo_root, branch, branch_info=f'{ref}/bundle/files_metadata')
+            self.fs_repo_root, self.active_branch, branch_info=f'{ref}/bundle/files_metadata')
 
     def read_files_metadata(self, ref):
         return self.mfs_read_json(self.get_metadata_file(ref))
@@ -330,10 +345,8 @@ class CommonAPI:
         metadata but follow the symlink in the bundle files.
         """
 
-        fs_repo_root = self.get_repo_root()
-        branch = self.get_active_branch(fs_repo_root)
         mfs_files_root = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=f'{mfs_ref}/bundle/files')
+            self.fs_repo_root, self.active_branch, branch_info=f'{mfs_ref}/bundle/files')
 
         # Copy over the current ref root to a temporary
         mfs_new_files_root = Path(self.namespace) / 'ipvc' / 'tmp'
@@ -343,12 +356,12 @@ class CommonAPI:
             pass
         
         self.ipfs.files_cp(mfs_files_root, mfs_new_files_root)
-        add_path_relative = fs_add_path.relative_to(fs_repo_root)
+        add_path_relative = fs_add_path.relative_to(self.fs_repo_root)
 
         # Find the changes between the ref and the workspace, and modify the tmp root
         files_metadata = self.read_files_metadata(mfs_ref)
         added, removed, modified = self.workspace_changes(
-            fs_add_path, fs_repo_root, files_metadata)
+            fs_add_path, self.fs_repo_root, files_metadata)
 
         for fs_path in removed | modified:
             self.ipfs.files_rm(mfs_new_files_root / fs_path, recursive=True)
@@ -364,7 +377,7 @@ class CommonAPI:
                 self.ipfs.files_mkdir(dir_path, parents=True)
             except ipfsapi.exceptions.StatusError:
                 pass
-            h = self.ipfs.add(fs_repo_root / fs_path)["Hash"]
+            h = self.ipfs.add(self.fs_repo_root / fs_path)["Hash"]
             self.ipfs.files_cp(f'/ipfs/{h}', mfs_new_files_root / fs_path)
 
             num_hashed += 1
@@ -400,13 +413,10 @@ class CommonAPI:
         return diff.get('Changes', []), num_hashed
 
     def get_mfs_changes(self, refpath_from, refpath_to):
-        fs_repo_root = self.get_repo_root()
-        branch = self.get_active_branch(fs_repo_root)
-
         mfs_from_path = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=refpath_from)
+            self.fs_repo_root, self.active_branch, branch_info=refpath_from)
         mfs_to_path = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=refpath_to)
+            self.fs_repo_root, self.active_branch, branch_info=refpath_to)
         try:
             stat = self.ipfs.files_stat(mfs_from_path)
             from_hash = stat['Hash']
@@ -441,16 +451,13 @@ class CommonAPI:
     def add_ref_changes_to_ref(self, ref_from, ref_to, add_path):
         """ Add changes from 'ref_from' to 'ref_to' under
         `add_path` (relative to repo root) and returns the changes"""
-        fs_repo_root = self.get_repo_root()
-        branch = self.get_active_branch(fs_repo_root)
-
         _, mfs_refpath_from, _ = self.refpath_to_mfs(Path(f'@{ref_from}') / add_path)
         _, mfs_refpath_to, _ = self.refpath_to_mfs(Path(f'@{ref_to}') / add_path)
 
         mfs_from_add_path = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=mfs_refpath_from)
+            self.fs_repo_root, self.active_branch, branch_info=mfs_refpath_from)
         mfs_to_add_path = self.get_mfs_path(
-            fs_repo_root, branch, branch_info=mfs_refpath_to)
+            self.fs_repo_root, self.active_branch, branch_info=mfs_refpath_to)
 
         # Get the reverse changes from the copying direction
         changes, to_empty, from_empty = self.get_mfs_changes(
@@ -494,25 +501,20 @@ class CommonAPI:
         return changes
 
     def update_mfs_repo(self):
-        fs_repo_root = self.get_repo_root()
         return self.add_fs_to_mfs(
-            fs_repo_root, 'workspace')
+            self.fs_repo_root, 'workspace')
 
     def common(self):
-        fs_repo_root = self.get_repo_root()
-        if fs_repo_root is None:
+        if self.fs_repo_root is None:
             if not self.quiet: print('No ipvc repository here', file=sys.stderr)
             raise RuntimeError()
 
         self.update_mfs_repo()
-        branch = self.get_active_branch(fs_repo_root)
-        return fs_repo_root, branch
+        return self.fs_repo_root, self.active_branch
 
     def get_refpath_files_hash(self, refpath):
-        fs_repo_root, branch = self.common()
-
         branch, files, _ = self.refpath_to_mfs(refpath)
-        mfs_commit_files = self.get_mfs_path(fs_repo_root, branch=branch, branch_info=files)
+        mfs_commit_files = self.get_mfs_path(self.fs_repo_root, branch=branch, branch_info=files)
         try:
             commit_files_hash = self.ipfs.files_stat(mfs_commit_files)['Hash']
         except ipfsapi.exceptions.StatusError:
@@ -522,8 +524,7 @@ class CommonAPI:
         return commit_files_hash
 
     def get_branch_info_hash(self, branch, info):
-        fs_repo_root, _ = self.common()
-        mfs_commit_path = self.get_mfs_path(fs_repo_root, branch=branch, branch_info=info)
+        mfs_commit_path = self.get_mfs_path(self.fs_repo_root, branch=branch, branch_info=info)
         try:
             commit_hash = self.ipfs.files_stat(mfs_commit_path)['Hash']
         except ipfsapi.exceptions.StatusError:
@@ -551,7 +552,6 @@ class CommonAPI:
 
     def _diff(self, to_refpath, from_refpath, files):
         # TODO: change the files parameter to 'diff_content_only'
-        fs_repo_root, branch = self.common()
         to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
         changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
         if files:
