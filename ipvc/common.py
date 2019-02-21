@@ -292,10 +292,6 @@ class CommonAPI:
             return {}
 
     def mfs_write_json(self, data, path):
-        try:
-            self.ipfs.files_rm(path)
-        except ipfsapi.exceptions.StatusError:
-            pass
         data_bytes = io.BytesIO(json.dumps(data).encode('utf-8'))
         self.ipfs.files_write(path, data_bytes, create=True, truncate=True)
 
