@@ -107,6 +107,8 @@ def test_pull():
     # Doesn't have a merge parent
     assert history[0][-1] == None
 
+    ipvc.print_ipfs_profile_info()
+
 
 def test_create_and_checkout():
     ipvc = get_environment()
@@ -156,6 +158,8 @@ def test_create_and_checkout():
     t2 = test_file3.stat().st_mtime_ns
     assert t1 == t2
 
+    ipvc.print_ipfs_profile_info()
+
 
 def test_create_from():
     ipvc = get_environment()
@@ -182,6 +186,7 @@ def test_create_from():
     os.remove(filename1)
     ret = ipvc.diff.run()
 
+    ipvc.print_ipfs_profile_info()
 
 def test_history():
     ipvc = get_environment()
@@ -214,3 +219,5 @@ def test_history():
 
     assert ipvc.branch.show(Path('@head')) == 'test_file.txt'
     assert ipvc.branch.show(Path('@head/test_file.txt')) == 'hello world'
+
+    ipvc.print_ipfs_profile_info()

@@ -201,18 +201,6 @@ class CommonAPI:
             return path / branch_info
         return path
 
-    def ipfs_object_diff(self, hash_a, hash_b):
-        # NOTE: use ipfs.object_diff when it's released
-        ret = self.ipfs._client.request(
-            '/object/diff', (hash_a, hash_b), decoder='json')
-        # Due to a bug in go-ipfs 0.4.13 diffing an emtpy directory with itself
-        # results in a bogus change, so filter out empty changes:
-        changes = ret['Changes'] or []
-        changes = [change for change in changes
-                   if change['Before'] != change['After']]
-        ret['Changes'] = changes
-        return ret
-
     @property
     @cached_property
     def active_branch(self):
@@ -407,7 +395,7 @@ class CommonAPI:
             pass
 
         self.ipfs.files_cp(mfs_new_files_root, mfs_files_root)
-        diff = self.ipfs_object_diff(
+        diff = self.ipfs.object_diff(
             self.ipfs.files_stat(mfs_files_root)['Hash'], new_files_root_hash)
 
         return diff.get('Changes', []), num_hashed
@@ -444,7 +432,7 @@ class CommonAPI:
                 'Path': ''
             }]
         else:
-            changes = self.ipfs_object_diff(
+            changes = self.ipfs.object_diff(
                 from_hash, to_hash)['Changes'] or []
         return changes, from_empty, to_empty
 

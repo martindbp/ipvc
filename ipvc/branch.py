@@ -210,7 +210,7 @@ class BranchAPI(CommonAPI):
         return (our_set & their_set).pop()
 
     def _get_file_changes(self, to_hash, from_hash):
-        changes = self.ipfs_object_diff(from_hash, to_hash)['Changes']
+        changes = self.ipfs.object_diff(from_hash, to_hash)['Changes']
         return {change['Path']: change for change in changes}
 
     def _merge(self, our_file_changes, their_file_changes, their_files_hash):
