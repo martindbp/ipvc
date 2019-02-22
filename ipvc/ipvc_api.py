@@ -27,15 +27,8 @@ class IPVC:
 
         def object_diff(hash_a, hash_b):
             # NOTE: use ipfs.object_diff when it's released
-            ret = self.ipfs._client.request(
+            return self.ipfs._client.request(
                 '/object/diff', (hash_a, hash_b), decoder='json')
-            # Due to a bug in go-ipfs 0.4.13 diffing an emtpy directory with itself
-            # results in a bogus change, so filter out empty changes:
-            changes = ret['Changes'] or []
-            changes = [change for change in changes
-                       if change['Before'] != change['After']]
-            ret['Changes'] = changes
-            return ret
         setattr(self.ipfs, 'object_diff', object_diff)
 
         self._timings = defaultdict(lambda: 0)
