@@ -14,7 +14,8 @@ import ipfsapi
 
 
 class IPVC:
-    def __init__(self, cwd:Path=None, namespace='/', quiet=False, verbose=False):
+    def __init__(self, cwd:Path=None, namespace='/', delete_mfs=False, init_mfs=True,
+                 quiet=False, verbose=False):
         cwd = cwd or Path.cwd()
         assert isinstance(cwd, Path)
 
@@ -24,6 +25,25 @@ class IPVC:
             print("Couldn't connect to ipfs, is it running?", file=sys.stderr)
             exit(1)
 
+        if delete_mfs:
+            try:
+                self.ipfs.files_rm(Path(namespace) / 'ipvc', recursive=True)
+            except:
+                pass
+            try:
+                self.ipfs.files_rm(Path(namespace) / 'ipvc_snapshots', recursive=True)
+            except:
+                pass
+
+        if init_mfs:
+            # Create the ipvc dir, and snapshots, since it will be used when
+            # making api calls atomic
+
+            try:
+                self.ipfs.files_mkdir(Path(namespace) / 'ipvc', parents=True)
+                self.ipfs.files_mkdir(Path(namespace) / 'ipvc_snapshots', parents=True)
+            except:
+                pass
 
         def object_diff(hash_a, hash_b):
             # NOTE: use ipfs.object_diff when it's released

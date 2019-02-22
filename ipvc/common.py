@@ -2,6 +2,7 @@ import os
 import io
 import sys
 import json
+from datetime import datetime
 import hashlib
 import difflib
 from functools import wraps
@@ -79,8 +80,11 @@ def cached_property(prop):
 
 def atomic(api_method):
     """ Wraps a method to make it atomic on IPFS, meaning the method will
-    operate on a copy of the real mfs ipvc folder and the resulting modified folder
-    will replace the original only when the method was executed successfully """
+    will save a copy of the entire ipvc data-store before calling the method,
+    and restore it to that copy if an exception is raised within the method.
+    TODO: implement a lock on the ipvc folder so that concurrent ipvc calls can't
+    fail
+    """
 
     @wraps(api_method)
     def _impl(self, *args, **kwargs):
@@ -88,36 +92,18 @@ def atomic(api_method):
             return api_method(self, *args, **kwargs)
 
         self._in_atomic_operation = True
-        tmp_namespace = Path('/ipvc_tmp')
-        try:
-            self.ipfs.files_rm(tmp_namespace / 'ipvc', recursive=True)
-        except:
-            pass
-        self.ipfs.files_mkdir(tmp_namespace, parents=True)
-        old_namespace, self.namespace = self.namespace, tmp_namespace
-        try:
-            self.ipfs.files_cp(old_namespace / 'ipvc', tmp_namespace / 'ipvc')
-        except:
-            pass
+        timestamp = datetime.now().strftime("%Y%m%d-%H%M%S.%f") 
+        snapshot_dir = self.namespace / f'ipvc_snapshots/{timestamp}'
+        self.ipfs.files_cp(self.namespace / 'ipvc', snapshot_dir)
+
         try:
             ret = api_method(self, *args, **kwargs)
         except:
-            self.namespace = old_namespace
             self._in_atomic_operation = False
+            self.ipfs.files_rm(self.namespace / 'ipvc', recursive=True)
+            self.ipfs.files_cp(snapshot_dir, self.namespace / 'ipvc')
             raise
 
-        try:
-            self.ipfs.files_rm(old_namespace / 'ipvc', recursive=True)
-        except:
-            pass
-
-        # Note: the api method might not have created an ipvc folder
-        # e.g. if first time use and running any command but ipvc repo init
-        try:
-            self.ipfs.files_cp(tmp_namespace / 'ipvc', old_namespace / 'ipvc')
-        except:
-            pass
-        self.namespace = old_namespace
         self._in_atomic_operation = False
         return ret
 
