@@ -36,21 +36,6 @@ def separate_refpath(refpath: Path):
     return parts[0], Path(*parts[1:])
 
 
-def print_changes(changes):
-    for change in changes:
-        type_ = change['Type']
-        before = (change['Before'] or {}).get('/', None)
-        after = (change['After'] or {}).get('/', None)
-        path = change['Path']
-        path = path + ' ' if path is not '' else ''
-        if type_ == 0:
-            print(f'+ {path}{after}')
-        elif type_ == 1:
-            print(f'- {path}{before}')
-        elif type_ == 2:
-            print(f'{path}{before} --> {after}')
-
-
 def make_len(string, num):
     string = string[:num]
     return string + ' '*(num-len(string))
@@ -119,6 +104,28 @@ class CommonAPI:
         self.quiet = quiet
         self.verbose = verbose
         self._in_atomic_operation = False
+
+
+    def print(self, *args, **kwargs):
+        if self.quiet: return
+        print(*args, **kwargs)
+
+    def print_err(self, *args, **kwargs):
+        print(*args, **kwargs, file=sys.stderr)
+
+    def print_changes(self, changes):
+        for change in changes:
+            type_ = change['Type']
+            before = (change['Before'] or {}).get('/', None)
+            after = (change['After'] or {}).get('/', None)
+            path = change['Path']
+            path = path + ' ' if path is not '' else ''
+            if type_ == 0:
+                self.print(f'+ {path}{after}')
+            elif type_ == 1:
+                self.print(f'- {path}{before}')
+            elif type_ == 2:
+                self.print(f'{path}{before} --> {after}')
 
     def invalidate_cache(self, props=None):
         if props is None:
@@ -353,16 +360,14 @@ class CommonAPI:
             num_hashed += 1
             if self.verbose:
                 if not printed_header:
-                    if not self.quiet: print('Updating workspace:')
+                    self.print('Updating workspace:')
                     printed_header = True
-                if not self.quiet:
-                    fs_path_from_cwd = Path(fs_path).relative_to(self.fs_cwd)
-                    print(make_len(str(fs_path_from_cwd), 80), end='\r')
+                fs_path_from_cwd = Path(fs_path).relative_to(self.fs_cwd)
+                self.print(make_len(str(fs_path_from_cwd), 80), end='\r')
 
         if self.verbose and num_hashed > 0:
-            if not self.quiet:
-                print(make_len(f'added {num_hashed} files', 80), end='\r\n')
-                print('-'*80)
+            self.print(make_len(f'added {num_hashed} files', 80), end='\r\n')
+            self.print('-'*80)
 
         new_files_root_hash = self.ipfs.files_stat(mfs_new_files_root)['Hash']
         self.write_files_metadata(files_metadata, mfs_ref)
@@ -476,7 +481,7 @@ class CommonAPI:
 
     def common(self):
         if self.fs_repo_root is None:
-            if not self.quiet: print('No ipvc repository here', file=sys.stderr)
+            self.print_err('No ipvc repository here')
             raise RuntimeError()
 
         self.update_mfs_repo()
@@ -488,7 +493,7 @@ class CommonAPI:
         try:
             commit_files_hash = self.ipfs.files_stat(mfs_commit_files)['Hash']
         except ipfsapi.exceptions.StatusError:
-            if not self.quiet: print('No such ref', file=sys.stderr)
+            self.print_err('No such ref')
             raise RuntimeError()
 
         return commit_files_hash
@@ -498,7 +503,7 @@ class CommonAPI:
         try:
             commit_hash = self.ipfs.files_stat(mfs_commit_path)['Hash']
         except ipfsapi.exceptions.StatusError:
-            if not self.quiet: print('No such ref', file=sys.stderr)
+            self.print_err('No such ref')
             raise RuntimeError()
 
         return commit_hash
@@ -525,8 +530,7 @@ class CommonAPI:
         to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
         changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
         if files:
-            if not self.quiet:
-                print_changes(changes)
+            self.print_changes(changes)
 
             return changes
         else:
@@ -548,8 +552,7 @@ class CommonAPI:
                 diff = difflib.unified_diff(from_lines, to_lines, lineterm='',
                                             fromfile=from_file_path,
                                             tofile=to_file_path)
-                if not self.quiet:
-                    print('\n'.join(list(diff)[:-1]))
+                self.print('\n'.join(list(diff)[:-1]))
 
             return changes
 

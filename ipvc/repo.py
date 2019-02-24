@@ -15,10 +15,9 @@ class RepoAPI(CommonAPI):
         Lists all the repositories on the connected ipfs node MFS
         """
         repos = list(self.list_repo_paths())
-        if not self.quiet:
-            print('Found repositories at:')
-            for h, path in repos:
-                print(f'{h}: {path}')
+        self.print('Found repositories at:')
+        for h, path in repos:
+            self.print(f'{h}: {path}')
         return repos
 
     @atomic
@@ -30,17 +29,14 @@ class RepoAPI(CommonAPI):
         # Create the new repository folder structure
         fs_repo_root = self.get_repo_root(path)
         if fs_repo_root is not None:
-            if self.quiet:
-                raise RuntimeError()
-
             if len(str(fs_repo_root)) < len(str(path)):
-                print(f'A repository already exists upstream from here at \
-                      {fs_repo_root}', file=sys.stderr)
+                self.print_err(f'A repository already exists upstream from here at \
+                               {fs_repo_root}')
             elif len(str(fs_repo_root)) > len(str(path)):
-                print(f'A repository already exists downstream from here at \
-                      {fs_repo_root}', file=sys.stderr)
+                self.print_err(f'A repository already exists downstream from here at \
+                               {fs_repo_root}')
             else:
-                print('A repository already exists here', file=sys.stderr)
+                self.print_err('A repository already exists here')
             raise RuntimeError()
 
         # Create empty stage, workspace and head files
@@ -60,7 +56,7 @@ class RepoAPI(CommonAPI):
 
         self.update_mfs_repo()
 
-        if not self.quiet: print(f'Successfully created repository')
+        self.print(f'Successfully created repository')
         return True
 
     @atomic
@@ -69,29 +65,24 @@ class RepoAPI(CommonAPI):
         if path2 is None:
             fs_repo_root = self.get_repo_root()
             if fs_repo_root is None:
-                if not self.quiet:
-                    print('No ipvc repository here', file=sys.stderr)
+                self.print_err('No ipvc repository here')
                 raise RuntimeError()
             path2 = path1
             path1 = fs_repo_root
         else:
             path1 = self.get_repo_root(path1)
             if path1 is None:
-                if not self.quiet:
-                    print(f'No ipvc repository at {path1}', file=sys.stderr)
+                self.print_err(f'No ipvc repository at {path1}')
                 raise RuntimeError()
 
         if self.get_repo_root(path2) is not None:
-            if not self.quiet:
-                print(f'There is already a repository above or below {path2}',
-                      file=sys.stderr)
+            self.print_err(f'There is already a repository above or below {path2}')
             raise RuntimeError()
 
         try:
             shutil.move(path1, path2)
         except:
-            if not self.quiet:
-                print(f'Unable to move directory to {path2}', file=sys.stderr)
+            self.print_err(f'Unable to move directory to {path2}')
             raise RuntimeError()
 
         self.ipfs.files_cp(self.get_mfs_path(path1), self.get_mfs_path(path2))
@@ -105,16 +96,15 @@ class RepoAPI(CommonAPI):
         fs_repo_root = self.get_repo_root(path)
 
         if fs_repo_root is None:
-            if not self.quiet:
-                if path is None:
-                    print('No ipvc repository here', file=sys.stderr)
-                else:
-                    print(f'No ipvc repository at {path}', file=sys.stderr)
+            if path is None:
+                self.print_err('No ipvc repository here')
+            else:
+                self.print_err(f'No ipvc repository at {path}')
             raise RuntimeError()
 
         mfs_repo_root = self.get_mfs_path(fs_repo_root)
         h = self.ipfs.files_stat(mfs_repo_root)['Hash']
         self.ipfs.files_rm(mfs_repo_root, recursive=True)
         self.invalidate_cache()
-        print('Repository successfully removed')
+        self.print('Repository successfully removed')
         return True

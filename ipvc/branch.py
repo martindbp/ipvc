@@ -16,27 +16,23 @@ class BranchAPI(CommonAPI):
     @atomic
     def status(self, name=False):
         self.common()
-        if not self.quiet: print(self.active_branch)
+        self.print(self.active_branch)
         return self.active_branch
 
     @atomic
     def create(self, name, from_commit="@head", no_checkout=False):
         self.common()
         if not name.replace('_', '').isalnum():
-            if not self.quiet:
-                print('Branch name has to be alpha numeric with underscores',
-                      file=sys.stderr)
+            self.print_err('Branch name has to be alpha numeric with underscores')
             raise RuntimeError()
         elif name in ['head', 'workspace', 'stage']:
-            if not self.quiet:
-                print(f'"{name}" is a reserved keyword, please pick a different branch name',
-                      file=sys.stderr)
+            self.print_err(f'"{name}" is a reserved keyword, please pick a different branch name')
             raise RuntimeError()
 
 
         try:
             self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
-            if not self.quiet: print('Branch name already exists', file=sys.stderr)
+            self.print_err('Branch name already exists')
             raise RuntimeError()
         except ipfsapi.exceptions.StatusError:
             pass
@@ -64,8 +60,7 @@ class BranchAPI(CommonAPI):
             try:
                 self.ipfs.files_stat(mfs_commit_path)
             except ipfsapi.exceptions.StatusError:
-                if not self.quiet:
-                    print('No such commit', file=sys.stderr)
+                self.print_err('No such commit')
                 raise RuntimeError()
 
             self.ipfs.files_cp(mfs_commit_path, mfs_head_path)
@@ -114,7 +109,7 @@ class BranchAPI(CommonAPI):
         try:
             self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
         except ipfsapi.exceptions.StatusError:
-            if not self.quiet: print('No branch by that name exists', file=sys.stderr)
+            self.print_err('No branch by that name exists')
             raise RuntimeError()
 
         # Write the new branch name to active_branch_name
@@ -169,11 +164,10 @@ class BranchAPI(CommonAPI):
         while True:
             h, ts, msg = commit_hash[:6], commit_metadata['timestamp'], commit_metadata['message']
             auth = make_len(commit_metadata['author'] or '', 30)
-            if not self.quiet: 
-                if show_hash:
-                    print(f'* {commit_hash} {ts} {auth}   {msg}')
-                else:
-                    print(f'* {ts} {auth}   {msg}')
+            if show_hash:
+                self.print(f'* {commit_hash} {ts} {auth}   {msg}')
+            else:
+                self.print(f'* {ts} {auth}   {msg}')
 
             parent_hash, parent_metadata, merge_parent_hash, _ = self._get_commit_parents(commit_hash)
             commits.append((commit_hash, parent_hash, merge_parent_hash))
@@ -280,10 +274,10 @@ class BranchAPI(CommonAPI):
                 self.add_ref_changes_to_ref('workspace', 'stage', filename)
 
             if has_merge_conflict:
-                print(f'Merge conflict in {filename}')
+                self.print(f'Merge conflict in {filename}')
                 conflict_files.add(filename)
             elif has_merges:
-                print(f'Successfully merged {filename}')
+                self.print(f'Successfully merged {filename}')
                 merged_files.add(filename)
             else:
                 pulled_files.add(filename)
@@ -333,7 +327,7 @@ class BranchAPI(CommonAPI):
                 # Check that merge_parent is there, otherwise it will raise
                 self.ipfs.files_rm(mfs_merge_parent, recursive=True)
             except:
-                print('There is no pull merge in progress', file=sys.stderr)
+                self.print_err('There is no pull merge in progress')
                 raise RuntimeError()
 
             # Reset workspace and stage
@@ -376,13 +370,13 @@ class BranchAPI(CommonAPI):
         our_file_changes = self._get_file_changes(our_files_hash, lca_files_hash)
         stage_conflict_set = our_stage_file_changes.keys() & their_file_changes.keys()
         if len(stage_conflict_set) > 0:
-            print('Pull conflicts with local staged changes in:', file=sys.stderr)
-            print('\n'.join(list(stage_conflict_set)), file=sys.stderr)
+            self.print_err('Pull conflicts with local staged changes in:')
+            self.print_err('\n'.join(list(stage_conflict_set)))
             raise RuntimeError()
         workspace_conflict_set = our_workspace_file_changes.keys() & their_file_changes.keys()
         if len(workspace_conflict_set) > 0:
-            print('Pull conflicts with local workspace changes in:', file=sys.stderr)
-            print('\n'.join(list(workspace_conflict_set)), file=sys.stderr)
+            self.print_err('Pull conflicts with local workspace changes in:')
+            self.print_err('\n'.join(list(workspace_conflict_set)))
             raise RuntimeError()
 
         if reapply is False:
@@ -395,15 +389,14 @@ class BranchAPI(CommonAPI):
                 # so all that is left to do is to update the head
                 self.ipfs.files_rm(mfs_head, recursive=True)
                 self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_head)
-                if not self.quiet:
-                    print('Performed a fast-forward merge')
+                self.print('Performed a fast-forward merge')
             else:
                 if len(conflict_files) > 0:
-                    print(('Pull produced merge conflicts. Edit the conflicts and '
-                           'commit, or run `ipvc branch pull --abort` to abort'))
+                    self.print(('Pull produced merge conflicts. Edit the conflicts and '
+                                'commit, or run `ipvc branch pull --abort` to abort'))
                 else:
-                    print(('Pull merge successful. Commit with a merge message or '
-                           'run `ipvc branch pull --abort` to abort'))
+                    self.print(('Pull merge successful. Commit with a merge message or '
+                                'run `ipvc branch pull --abort` to abort'))
 
                 # Save their commit as the merge_parent
                 self.ipfs.files_cp(f'/ipfs/{their_commit_hash}', mfs_merge_parent)
@@ -423,7 +416,7 @@ class BranchAPI(CommonAPI):
         if browser:
             # TODO: read IPFS node url from settings
             url = f'http://localhost:8080/ipfs/{commit_files_hash}'
-            if not self.quiet: print(f'Opening {url}')
+            self.print(f'Opening {url}')
             webbrowser.open(url)
         else:
             ret = self.ipfs.ls(f'/ipfs/{commit_files_hash}')
@@ -431,21 +424,18 @@ class BranchAPI(CommonAPI):
             if len(obj['Links']) == 0:
                 # It's a file, so cat it
                 cat = self.ipfs.cat(f'/ipfs/{commit_files_hash}').decode('utf-8')
-                if not self.quiet:
-                    print(cat)
+                self.print(cat)
                 return cat
             else:
                 # It's a folder
                 ls = '\n'.join([ln['Name'] for ln in obj['Links']])
-                if not self.quiet:
-                    print(ls)
+                self.print(ls)
                 return ls
 
     @atomic
     def ls(self):
         """ List branches """
-        if not self.quiet:
-            print('\n'.join(self.branches))
+        self.print('\n'.join(self.branches))
         return self.branches
 
     @atomic

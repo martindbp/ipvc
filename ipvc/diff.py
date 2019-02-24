@@ -1,5 +1,5 @@
 from pathlib import Path
-from ipvc.common import CommonAPI, print_changes
+from ipvc.common import CommonAPI
 
 class DiffAPI(CommonAPI):
     def __init__(self, *args, **kwargs):

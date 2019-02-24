@@ -6,7 +6,7 @@ from pathlib import Path
 from datetime import datetime
 
 import ipfsapi
-from ipvc.common import CommonAPI, print_changes, atomic
+from ipvc.common import CommonAPI, atomic
 
 
 class StageAPI(CommonAPI):
@@ -21,18 +21,16 @@ class StageAPI(CommonAPI):
                 yield fs_path.relative_to(fs_repo_root)
             except:
                 # Doesn't start with workspace_root
-                if not self.quiet:
-                    print(f'Path outside workspace {fs_path}', file=sys.stderr)
+                self.print_err(f'Path outside workspace {fs_path}')
                 raise
 
     def _notify_pull_merge(self, fs_repo_root, branch):
         mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
         try:
             self.ipfs.files_stat(mfs_merge_parent)
-            if not self.quiet:
-                print(('NOTE: you are in the merge conflict state, the next '
-                       'commit will be the merge commit. To abort merge, run '
-                       '`ipvc branch pull --abort`\n'))
+            self.print(('NOTE: you are in the merge conflict state, the next '
+                        'commit will be the merge commit. To abort merge, run '
+                        '`ipvc branch pull --abort`\n'))
         except:
             pass
 
@@ -48,12 +46,11 @@ class StageAPI(CommonAPI):
             changes = changes + self.add_ref_changes_to_ref(
                 'workspace', 'stage', fs_path_relative)
 
-        if not self.quiet: 
-            if len(changes) == 0:
-                print('No changes')
-            else:
-                print('Changes:')
-                print_changes(changes)
+        if len(changes) == 0:
+            self.print('No changes')
+        else:
+            self.print('Changes:')
+            self.print_changes(changes)
         return changes
 
     @atomic
@@ -67,12 +64,11 @@ class StageAPI(CommonAPI):
             changes = changes + self.add_ref_changes_to_ref(
                 'head', 'stage', fs_path_relative)
 
-        if not self.quiet:
-            if len(changes) == 0:
-                print('No changes')
-            else:
-                print('Changes:')
-                print_changes(changes)
+        if len(changes) == 0:
+            self.print('No changes')
+        else:
+            self.print('Changes:')
+            self.print_changes(changes)
         return changes
 
     @atomic
@@ -83,22 +79,20 @@ class StageAPI(CommonAPI):
 
         head_stage_changes, *_ = self.get_mfs_changes(
             'head/bundle/files', 'stage/bundle/files')
-        if not self.quiet: 
-            if len(head_stage_changes) == 0:
-                print('No staged changes')
-            else:
-                print('Staged:')
-                print_changes(head_stage_changes)
-                print('-'*80)
+        if len(head_stage_changes) == 0:
+            self.print('No staged changes')
+        else:
+            self.print('Staged:')
+            self.print_changes(head_stage_changes)
+            self.print('-'*80)
 
         stage_workspace_changes, *_ = self.get_mfs_changes(
             'stage/bundle/files', 'workspace/bundle/files')
-        if not self.quiet:
-            if len(stage_workspace_changes) == 0:
-                print('No unstaged changes')
-            else:
-                print('Unstaged:')
-                print_changes(stage_workspace_changes)
+        if len(stage_workspace_changes) == 0:
+            self.print('No unstaged changes')
+        else:
+            self.print('Unstaged:')
+            self.print_changes(stage_workspace_changes)
 
         return head_stage_changes, stage_workspace_changes
 
@@ -112,7 +106,7 @@ class StageAPI(CommonAPI):
         head_hash = self.ipfs.files_stat(mfs_head)['Hash']
         stage_hash = self.ipfs.files_stat(mfs_stage)['Hash']
         if head_hash == stage_hash:
-            print('Nothing to commit', file=sys.stderr)
+            self.print_err('Nothing to commit')
             raise RuntimeError
 
         # Set head to stage
