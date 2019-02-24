@@ -24,9 +24,12 @@ def test_status():
     assert len(stage_workspace) == 0 
 
 
-def test_add():
+def test_add_commit():
     ipvc = get_environment()
     ipvc.repo.init()
+
+    with pytest.raises(RuntimeError):
+        ipvc.stage.commit('asd')
 
     with pytest.raises(ValueError):
         ipvc.stage.add('/notrepo')

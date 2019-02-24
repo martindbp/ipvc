@@ -110,6 +110,10 @@ class StageAPI(CommonAPI):
         mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
         mfs_stage = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='stage')
         head_hash = self.ipfs.files_stat(mfs_head)['Hash']
+        stage_hash = self.ipfs.files_stat(mfs_stage)['Hash']
+        if head_hash == stage_hash:
+            print('Nothing to commit', file=sys.stderr)
+            raise RuntimeError
 
         # Set head to stage
         try:
@@ -123,7 +127,8 @@ class StageAPI(CommonAPI):
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
         # Add merge_parent to merged head if this was a merge commit
-        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='merge_parent')
+        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
+                                             branch_info='merge_parent')
         is_merge = False
         try:
             self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
