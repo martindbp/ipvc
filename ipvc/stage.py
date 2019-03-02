@@ -97,8 +97,12 @@ class StageAPI(CommonAPI):
         return head_stage_changes, stage_workspace_changes
 
     @atomic
-    def commit(self, message):
-        """ Creates a new commit with the staged changes and returns new commit hash"""
+    def commit(self, message=None, commit_metadata=None):
+        """ Creates a new commit with the staged changes and returns new commit hash
+
+        If commit_metadata is provided instead of message, then it will be used instead
+        of generating new metadata
+        """
         self.common()
 
         mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
@@ -137,16 +141,17 @@ class StageAPI(CommonAPI):
         except:
             pass
 
-        # Add metadata
-        params = self.read_global_params()
-        metadata = {
-            'message': message,
-            'author': params.get('author', None),
-            'timestamp': datetime.utcnow().isoformat(),
-            'is_merge': is_merge
-        }
+        # Add commit metadata
+        if commit_metadata is None:
+            params = self.read_global_params()
+            commit_metadata = {
+                'message': message,
+                'author': params.get('author', None),
+                'timestamp': datetime.utcnow().isoformat(),
+                'is_merge': is_merge
+            }
 
-        metadata_bytes = io.BytesIO(json.dumps(metadata).encode('utf-8'))
+        metadata_bytes = io.BytesIO(json.dumps(commit_metadata).encode('utf-8'))
         self.ipfs.files_write(
             f'{mfs_head}/commit_metadata', metadata_bytes, create=True, truncate=True)
 
