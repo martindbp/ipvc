@@ -218,7 +218,7 @@ class CommonAPI:
         try:
             repos_mfs_path = self.get_mfs_path(ipvc_info='repos')
             ls = self.ipfs.files_ls(repos_mfs_path)
-            for entry in ls['Entries']:
+            for entry in ls['Entries'] or []:
                 repo_hex = entry['Name']
                 fs_repo_path = bytes.fromhex(repo_hex).decode('utf-8')
                 repo_mfs_path = Path(repos_mfs_path) / repo_hex
