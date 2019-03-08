@@ -96,22 +96,29 @@ def atomic(api_method):
 
 
 class CommonAPI:
-    def __init__(self, _ipvc, _ipfs, _fs_cwd, _namespace='/', quiet=False, verbose=False):
+    def __init__(self, _ipvc, _ipfs, _fs_cwd, _namespace='/', quiet=False,
+                 verbose=False, stdout=None, stderr=None):
         self.ipvc = _ipvc
         self.ipfs = _ipfs
         self.fs_cwd = _fs_cwd
         self.namespace = Path(_namespace)
         self.quiet = quiet
         self.verbose = verbose
+        self.stdout = stdout
+        self.stderr = stderr
         self._in_atomic_operation = False
 
 
     def print(self, *args, **kwargs):
         if self.quiet: return
         print(*args, **kwargs)
+        if self.stdout:
+            print(*args, **kwargs, file=self.stdout)
 
     def print_err(self, *args, **kwargs):
         print(*args, **kwargs, file=sys.stderr)
+        if self.stderr:
+            print(*args, **kwargs, file=self.stderr)
 
     def print_changes(self, changes):
         for change in changes:

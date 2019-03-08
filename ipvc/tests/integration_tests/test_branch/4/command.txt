@@ -1,0 +1,1 @@
+ipvc --mfs-namespace /test stage add file_1.txt

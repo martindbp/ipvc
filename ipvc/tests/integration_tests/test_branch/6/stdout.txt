@@ -1,0 +1,4 @@
+Staged:
++ file_1.txt QmT78zSuBmuS4z925WZfrqQ1qHaJ56DQaTfyMUF7F8ff5o
+--------------------------------------------------------------------------------
+No unstaged changes

@@ -14,34 +14,46 @@ import ipfsapi
 
 
 class IPVC:
-    def __init__(self, cwd:Path=None, namespace='/', delete_mfs=False, init_mfs=True,
-                 quiet=False, verbose=False):
+    def __init__(self, cwd:Path=None, mfs_namespace=None, ipfs_ip=None,
+                 delete_mfs=False, init_mfs=True, quiet=False, verbose=False,
+                 stdout=None, stderr=None):
         cwd = cwd or Path.cwd()
+        mfs_namespace = mfs_namespace or '/'
         assert isinstance(cwd, Path)
 
+        ip_port_args = []
+        if ipfs_ip is not None:
+            try:
+                ip, port = ipfs_ip.split(':')
+                ip_port_args.append(ip)
+                if len(port) > 0:
+                    ip_port_args.append(int(port))
+            except:
+                print("IPFS ip/port '{ipfs_ip}' is not on the right format, e.g. '127.0.0.1:5000'",
+                      file=sys.stderr)
+
         try:
-            self.ipfs = ipfsapi.connect()
+            self.ipfs = ipfsapi.connect(*ip_port_args)
         except ipfsapi.exceptions.ConnectionError:
-            print("Couldn't connect to ipfs, is it running?", file=sys.stderr)
+            print("Couldn't connect to IPFS, is it running?", file=sys.stderr)
             exit(1)
 
         if delete_mfs:
             try:
-                self.ipfs.files_rm(Path(namespace) / 'ipvc', recursive=True)
+                self.ipfs.files_rm(Path(mfs_namespace) / 'ipvc', recursive=True)
             except:
                 pass
             try:
-                self.ipfs.files_rm(Path(namespace) / 'ipvc_snapshots', recursive=True)
+                self.ipfs.files_rm(Path(mfs_namespace) / 'ipvc_snapshots', recursive=True)
             except:
                 pass
 
         if init_mfs:
             # Create the ipvc dir, and snapshots, since it will be used when
             # making api calls atomic
-
             try:
-                self.ipfs.files_mkdir(Path(namespace) / 'ipvc', parents=True)
-                self.ipfs.files_mkdir(Path(namespace) / 'ipvc_snapshots', parents=True)
+                self.ipfs.files_mkdir(Path(mfs_namespace) / 'ipvc', parents=True)
+                self.ipfs.files_mkdir(Path(mfs_namespace) / 'ipvc_snapshots', parents=True)
             except:
                 pass
 
@@ -74,7 +86,7 @@ class IPVC:
         for m in profile_methods:
             setattr(self.ipfs, m, _profile(getattr(self.ipfs, m)))
 
-        args = (self, self.ipfs, cwd, namespace, quiet, verbose)
+        args = (self, self.ipfs, cwd, mfs_namespace, quiet, verbose, stdout, stderr)
         self.repo = RepoAPI(*args)
         self.stage = StageAPI(*args)
         self.branch = BranchAPI(*args)

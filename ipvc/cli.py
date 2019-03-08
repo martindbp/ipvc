@@ -1,6 +1,8 @@
 import os
+import sys
 import argparse
 import cProfile
+import shutil
 from pathlib import Path
 
 from .ipvc_api import IPVC
@@ -17,6 +19,16 @@ def main():
         '-q', '--quiet', action='store_true', help='No printing')
     parser.add_argument(
         '-p', '--profile', action='store_true', help='Profile the program')
+    parser.add_argument(
+        '-r', '--record', help='Record command as test, to output folder',
+        default=None)
+    parser.add_argument(
+        '-n', '--mfs-namespace', help='IPFS/MFS namespace for IPVC', default=None)
+    parser.add_argument(
+        '-i', '--ipfs-ip', help='IPFS ip and port string, e.g. "127.0.0.1:5001"',
+        default=None)
+    parser.add_argument(
+        '-d', '--delete-mfs', action='store_true', help='Delete IPVC in IPFS/MFS before running command')
     parser.set_defaults(command='help', subcommand='')
     subparsers = parser.add_subparsers()
 
@@ -157,14 +169,40 @@ def main():
 
     args = parser.parse_args()
     kwargs = dict(args._get_kwargs())
+    # Pop commands that should not go to the route
     kwargs.pop('command')
     kwargs.pop('subcommand')
     kwargs.pop('profile')
     quiet = kwargs.pop('quiet')
     verbose = kwargs.pop('verbose')
+    delete_mfs = kwargs.pop('delete_mfs')
+    ipfs_ip = kwargs.pop('ipfs_ip')
+    mfs_namespace = kwargs.pop('mfs_namespace')
+    record_dir = kwargs.pop('record')
 
-    # Replace dashes with underscores in option names
-    kwargs = {key.replace('-', '_'): val for key, val in kwargs.items()}
+    n_path = None
+    stdout_file, stderr_file = None, None
+    if record_dir is not None:
+        # Replace the first script path with 'ipvc', and remove the
+        # --record argument
+        record_idx = sys.argv.index('--record')
+        command = ('ipvc ' + ' '.join(sys.argv[1:record_idx]) + ' ' +
+                   ' '.join(sys.argv[record_idx+2:]))
+
+        num_states = 0
+        for root, dirs, _ in os.walk(record_dir):
+            for d in dirs:
+                if d.isnumeric():
+                    num_states += 1
+            break
+
+        n_path = Path(record_dir) / str(num_states)
+        os.makedirs(n_path)
+        shutil.copytree(cwd, n_path / 'pre')
+        with open(n_path / 'command.txt', 'w') as f:
+            f.write(command + '\n')
+        stdout_file = open(n_path / 'stdout.txt', 'w')
+        stderr_file = open(n_path / 'stderr.txt', 'w')
 
     if args.command == 'help':
         print('Use the --help option for help')
@@ -173,7 +211,9 @@ def main():
         print(ipvc.__version__)
         exit(0)
 
-    api = IPVC(quiet=quiet, verbose=verbose)
+    api = IPVC(quiet=quiet, verbose=verbose, mfs_namespace=mfs_namespace,
+               ipfs_ip=ipfs_ip, delete_mfs=delete_mfs, stdout=stdout_file,
+               stderr=stderr_file)
     route = getattr(getattr(api, args.command), args.subcommand)
     if args.profile:
         cProfile.run('route(**kwargs)')
@@ -182,3 +222,14 @@ def main():
             route(**kwargs)
         except RuntimeError:
             exit(1)
+        except:
+            if stdout_file is not None:
+                stdout_file.close()
+                stderr_file.close()
+            shutil.rmtree(n_path)
+            raise
+
+    if record_dir is not None:
+        shutil.copytree(cwd, n_path / 'post')
+        stdout_file.close()
+        stderr_file.close()
