@@ -400,6 +400,10 @@ class BranchAPI(CommonAPI):
                 self.ipfs.files_cp(f'/ipfs/{our_hashes[ref]}', mfs_merge_paths[ref])
                 self.ipfs.files_rm(mfs_paths[ref], recursive=True)
                 self.ipfs.files_cp(f'/ipfs/{their_hashes["head"]}', mfs_paths[ref])
+                if ref is not 'head':
+                    # Need to remove the parent link if the ref is stage or workspace
+                    self.ipfs.files_rm(f'{mfs_paths[ref]}/parent', recursive=True)
+
 
             # Check out the workspace to the filesystem
             self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')
@@ -408,7 +412,7 @@ class BranchAPI(CommonAPI):
             curr_head_files_hash = their_files_hash
             # For each of our changeset, merge with the current head
             all_merged, all_pulled = set(), set()
-            for commit_hash, changes in zip(our_lca_files_hashes[1:], our_changes):
+            for commit_hash, changes in zip(our_lca_path[1:], our_changes):
                 merged_files, conflict_files, pulled_files = self._merge(
                     changes, lca_to_head_changes, curr_head_files_hash)
                 all_merged = all_merged | merged_files
@@ -421,7 +425,7 @@ class BranchAPI(CommonAPI):
 
                 # No conflicts, so re-commit the changes with the same metadata as before
                 new_commit_hash = self.ipvc.stage.commit(
-                    metadata=self.get_commit_metadata(commit_hash))
+                    commit_metadata=self.get_commit_metadata(commit_hash))
                 curr_head_files_hash = _ref_files_hash(new_commit_hash)
                 # Update the changes between lca and head
                 lca_to_head_changes = self._get_file_changes(
