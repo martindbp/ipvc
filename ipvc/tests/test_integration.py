@@ -94,7 +94,10 @@ def run_assert_command(test_command_root):
         print('-----------------------------')
 
 
-def test_integration(tests_dir, name):
+def test_integration(tests_dir, name, stop_test, stop_command):
+    if stop_test is 'None':
+        stop_test = name
+
     tests_dir = os.path.abspath(tests_dir)
     cwd = os.getcwd()
     ipvc_test_dir = '/tmp/ipvc_integration_tests'
@@ -106,7 +109,7 @@ def test_integration(tests_dir, name):
 
     for tests_root, test_dirs, _ in os.walk(tests_dir):
         for test_dir in test_dirs:
-            if name is not None and name != test_dir:
+            if name is not 'None' and name != test_dir:
                 continue
             test_root = Path(tests_root) / test_dir
 
@@ -120,6 +123,8 @@ def test_integration(tests_dir, name):
             print(f'Testing {test_dir}')
             for i in range(num_states):
                 print(f'Testing command {i}')
+                if test_dir == stop_test and str(i) == stop_command:
+                    import pdb; pdb.set_trace()
                 setup_state(test_root / str(i) / 'pre')
                 run_assert_command(test_root / str(i))
                 assert_state(test_root / str(i) / 'post')
