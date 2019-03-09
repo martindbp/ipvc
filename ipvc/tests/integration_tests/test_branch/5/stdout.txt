@@ -1,4 +1,1 @@
---- /dev/null
-+++ file_1.txt
-@@ -0,0 +1,2 @@
-+hello world
+master

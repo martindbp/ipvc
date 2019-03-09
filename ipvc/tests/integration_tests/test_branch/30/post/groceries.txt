@@ -1,0 +1,16 @@
+blueberries
+bananas
+milk
+butter
+>>>>>>> ours
+chocolate
+======= theirs
+sugar
+<<<<<<<
+cream
+flower
+raspberries
+honey
+ketchup
+eggs
+

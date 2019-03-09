@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test stage commit msg1
+ipvc --mfs-namespace /test stage diff

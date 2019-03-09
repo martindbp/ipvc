@@ -1,0 +1,9 @@
+--- groceries.txt
++++ groceries.txt
+@@ -2,6 +2,7 @@
+ bananas
+ milk
+ butter
++sugar
+ cream
+ flower

@@ -1,0 +1,2 @@
+NOTE: you are in the merge conflict state, the next commit will be the merge commit. To abort merge, run `ipvc branch pull --abort`
+
