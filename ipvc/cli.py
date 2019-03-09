@@ -1,5 +1,6 @@
 import os
 import sys
+import shlex
 import argparse
 import cProfile
 import shutil
@@ -183,11 +184,14 @@ def main():
     n_path = None
     stdout_file, stderr_file = None, None
     if record_dir is not None:
+        # Add quotes around args with spaces in them
+        quoted_args = [shlex.quote(s) for s in sys.argv]
+
         # Replace the first script path with 'ipvc', and remove the
         # --record argument
-        record_idx = sys.argv.index('--record')
-        command = ('ipvc ' + ' '.join(sys.argv[1:record_idx]) + ' ' +
-                   ' '.join(sys.argv[record_idx+2:]))
+        record_idx = quoted_args .index('--record')
+        command = ('ipvc ' + ' '.join(quoted_args[1:record_idx]) + ' ' +
+                   ' '.join(quoted_args[record_idx+2:]))
 
         num_states = 0
         for root, dirs, _ in os.walk(record_dir):
