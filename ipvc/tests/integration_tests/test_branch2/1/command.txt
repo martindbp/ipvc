@@ -1,1 +1,0 @@
-ipvc --mfs-namespace /test --delete-mfs stage add test.txt
