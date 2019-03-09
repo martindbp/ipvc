@@ -21,6 +21,11 @@ To run a test from the command line, from the ipvc repository base:
 The --name argument specifies the test name to run. If unspecified all tests are run.
 The --tests_dir specifies where all the tests are. By default it is set to 'ipvc/tests/integration_tests'
 
+NOTE:
+Tests including commit hash outputs and commit logs will differ from recorded
+output, since the timestamp will differ. In these cases, replace the differing
+characters with an asterix (*), for wildcard matching.
+
 """
 import os
 import time
@@ -60,6 +65,11 @@ def assert_state(dir_path):
                 assert fff1.read() == fff2.read()
 
 
+def assert_output(correct, actual):
+    for c1, c2 in zip(correct, actual):
+        assert c1 == c2 or c1 == '*', (correct, actual)
+
+
 def run_assert_command(test_command_root):
     command = None
     with open(test_command_root / 'command.txt', 'r') as f:
@@ -72,8 +82,8 @@ def run_assert_command(test_command_root):
     print(f'Running command: {command}')
 
     ret = subprocess.run(command, shell=True, stderr=PIPE, stdout=PIPE)
-    assert str(ret.stdout, 'utf-8') == stdout
-    assert str(ret.stderr, 'utf-8') == stderr
+    assert_output(stdout, str(ret.stdout, 'utf-8'))
+    assert_output(stderr, str(ret.stderr, 'utf-8'))
     if len(stdout) > 0:
         print('stdout ---------------------')
         print(stdout)
@@ -109,6 +119,7 @@ def test_integration(tests_dir, name):
 
             print(f'Testing {test_dir}')
             for i in range(num_states):
+                print(f'Testing command {i}')
                 setup_state(test_root / str(i) / 'pre')
                 run_assert_command(test_root / str(i))
                 assert_state(test_root / str(i) / 'post')
