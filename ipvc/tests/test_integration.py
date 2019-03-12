@@ -52,20 +52,40 @@ def setup_state(dir_path):
 
 
 def assert_state(dir_path):
-    for (r1, d1, f1), (r2, d2, f2) in zip(os.walk('.'), os.walk(dir_path)):
-        d1.sort()
-        d2.sort()
-        f1.sort()
-        f2.sort()
-        for dd1, dd2 in zip(d1, d2):
-            assert dd1 == dd2
+    file_roots1 = []
+    files1 = []
+    file_roots2 = []
+    files2 = []
+    dirs1 = []
+    dirs2 = []
 
-        for ff1, ff2 in zip(f1, f2):
-            with open(ff1, 'r') as fff1, open(ff2, 'r') as fff2:
-                assert fff1.read() == fff2.read()
+    for r, dirs, files in os.walk('.'):
+        for d in dirs:
+            dirs1.append(Path(r) / d)
+        for f in files:
+            files1.append(f)
+            file_roots1.append(Path(r))
+
+    for r, dirs, files in os.walk(dir_path):
+        for d in dirs:
+            dirs2.append(Path(r) / d)
+        for f in files:
+            files2.append(f)
+            file_roots2.append(Path(r))
+
+    assert set(dirs1) == set(dirs2)
+    for d1, d2 in zip(dirs1, dirs2):
+        assert d1 == d2
+
+    assert set(files1) == set(files2)
+    for f1, r1, f2, r2 in zip(files1, file_roots1, files2, file_roots2):
+        assert f1 == f2
+        with open(r1 / f1) as ff1, open(r2 / f2) as ff2:
+            assert ff1.read() == ff2.read()
 
 
 def assert_output(correct, actual):
+    assert len(correct) == len(actual)
     for c1, c2 in zip(correct, actual):
         assert c1 == c2 or c1 == '*', (correct, actual)
 
