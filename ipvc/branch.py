@@ -295,13 +295,13 @@ class BranchAPI(CommonAPI):
         return merged_files, conflict_files, pulled_files
 
     @atomic
-    def pull(self, their_branch=None, reapply=False, no_fast_forward=False, abort=False):
+    def pull(self, their_branch=None, replay=False, no_fast_forward=False, abort=False):
         """ Pulls changes from `their_branch` since the last common parent
         By default, tries to merge the two branches and create a merge commit.
-        If reapply is True, then try to "reapply" the commits from our branch
+        If replay is True, then try to "replay" the commits from our branch
         onto their branch without creating a merge commit.
 
-        For reapply, the reason we apply our commits on top of their branch is because then
+        For replay, the reason we apply our commits on top of their branch is because then
         "they" can simply do a fast-forward merge with our branch, but if we do it
         the other way around they have to erase their branch and checkout ours completely.
 
@@ -319,7 +319,7 @@ class BranchAPI(CommonAPI):
            the diff for one commit at a time in our branch.
         3. For each such commit, if it can be applied without conflict, then apply it,
            otherwise, ask user same as in step 4 of merge
-        4. If manual editing is picked, we pause the reapply until user has edited
+        4. If manual editing is picked, we pause the replay until user has edited
            files and resumed
         """
         self.common()
@@ -384,7 +384,7 @@ class BranchAPI(CommonAPI):
             self.print_err('\n'.join(list(workspace_conflict_set)))
             raise RuntimeError()
 
-        if reapply:
+        if replay:
             # Get our commits since LCA, and changesets for each
             our_lca_path = our_lca_path[::-1] # reverse so that lca comes first
             our_lca_files_hashes = [_ref_files_hash(h) for h in our_lca_path]

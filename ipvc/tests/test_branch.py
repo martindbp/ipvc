@@ -42,7 +42,7 @@ def test_pull():
         ipvc.branch.pull('master')
 
     ipvc.stage.commit('msg2other')
-    pulled_files, merged_files, conflict_files = ipvc.branch.pull('master', reapply=True)
+    pulled_files, merged_files, conflict_files = ipvc.branch.pull('master', replay=True)
     assert conflict_files == set(['test_file.txt'])
     assert pulled_files == set(['other_file.txt'])
     assert merged_files == set(['test_file3.txt'])
@@ -113,8 +113,8 @@ def test_pull():
     # Doesn't have a merge parent
     assert history[0][-1] == None
 
-    # Test reapply
-    #ipvc.branch.create('reapplybranch', from_commit='@head~')
+    # Test replay
+    #ipvc.branch.create('replaybranch', from_commit='@head~')
 
     ipvc.print_ipfs_profile_info()
 
