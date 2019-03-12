@@ -212,7 +212,7 @@ class BranchAPI(CommonAPI):
         lca = (set(our_commits) & set(their_commits)).pop()
         return lca, our_commits, their_commits
 
-    def _get_file_changes(self, to_hash, from_hash):
+    def _get_file_changes(self, from_hash, to_hash):
         changes = self.ipfs.object_diff(from_hash, to_hash)['Changes']
         return {change['Path']: change for change in changes}
 
@@ -220,7 +220,7 @@ class BranchAPI(CommonAPI):
         """
         Takes changes from `their_file_changes` and merges them with `our_file_changes`,
         and writes the merged files to disk, with conflict markers if there are conflicts,
-        stages changes that are conflict free.
+        and then stage changes that are conflict free.
         Assumes that current fs repo has 'our_file_changes' in it already.
         """
         def _fdiff(change):
@@ -370,9 +370,9 @@ class BranchAPI(CommonAPI):
         # NOTE: Check staged changes first since workspace contains changes based
         # on the staged changes
         our_file_changes = {ref: self._get_file_changes(
-            our_file_hashes[ref], our_file_hashes['head']) for ref in ['stage', 'workspace']}
+            our_file_hashes['head'], our_file_hashes[ref]) for ref in ['stage', 'workspace']}
 
-        their_file_changes = self._get_file_changes(their_files_hash, lca_files_hash)
+        their_file_changes = self._get_file_changes(lca_files_hash, their_files_hash)
         stage_conflict_set = our_file_changes['stage'].keys() & their_file_changes.keys()
         if len(stage_conflict_set) > 0:
             self.print_err('Pull conflicts with local staged changes in:')
@@ -404,7 +404,6 @@ class BranchAPI(CommonAPI):
                     # Need to remove the parent link if the ref is stage or workspace
                     self.ipfs.files_rm(f'{mfs_paths[ref]}/parent', recursive=True)
 
-
             # Check out the workspace to the filesystem
             self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')
             
@@ -418,9 +417,7 @@ class BranchAPI(CommonAPI):
                 all_merged = all_merged | merged_files
                 all_pulled = all_pulled | pulled_files
                 if len(conflict_files) > 0:
-                    self.print('There is a conflict in files:')
-                    self.print('\n'.join(conflict_files))
-                    self.print('Please resolve and the run `ipvc branch pull --resume`')
+                    self.print('There are merge conflicts, please resolve and the run `ipvc branch pull --resume`')
                     return all_pulled, all_merged, conflict_files
 
                 # No conflicts, so re-commit the changes with the same metadata as before
@@ -429,10 +426,10 @@ class BranchAPI(CommonAPI):
                 curr_head_files_hash = _ref_files_hash(new_commit_hash)
                 # Update the changes between lca and head
                 lca_to_head_changes = self._get_file_changes(
-                    curr_head_files_hash, lca_files_hash)
+                    lca_files_hash, curr_head_files_hash)
 
         else:
-            our_lca_changes = self._get_file_changes(our_file_hashes['head'], lca_files_hash)
+            our_lca_changes = self._get_file_changes(lca_files_hash, our_file_hashes['head'])
             merged_files, conflict_files, pulled_files = self._merge(
                 our_lca_changes, their_file_changes, their_files_hash)
 
