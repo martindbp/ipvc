@@ -25,6 +25,7 @@ While there is a [git remote helper for ipfs](https://github.com/magik6k/git-rem
 * Ability to check out only the parts of a large repository you care about
 
 ## Installation
+NOTE: not recommended right now, not regularly updated and contains bugs.
 ```
 pip install ipvc
 ```
