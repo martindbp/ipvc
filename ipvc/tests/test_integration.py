@@ -33,6 +33,7 @@ import glob
 import pytest
 import shutil
 import subprocess
+from time import time, sleep
 from subprocess import PIPE
 from pathlib import Path
 from ipvc import IPVC
@@ -141,10 +142,20 @@ def test_integration(tests_dir, name, stop_command):
                 break
 
             print(f'Testing {test_dir}')
+            last_command_time = 0
             for i in range(num_states):
                 print(f'Testing command {i}')
                 setup_state(test_root / str(i) / 'pre')
                 if (name is None or test_dir == name) and str(i) == stop_command:
                     import pdb; pdb.set_trace()
+                t = time()
+                # Make sure there is always at least a second between commands
+                # since unix file timestamp resolution is a second and we
+                # need the files to have new timestamps
+                if t - last_command_time < 1:
+                    s = 1 - (t - last_command_time)
+                    print(f'Sleeping {s:.2f}s')
+                    sleep(s)
+                last_command_time = t
                 run_assert_command(test_root / str(i))
                 assert_state(test_root / str(i) / 'post')
