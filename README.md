@@ -117,9 +117,10 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch reset [<path>] # reset workspace at path`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
+* `ipvc branch history rewrite # analagous to git rebase -i
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
-* `//ipvc branch pull <refpath> # analagous to git merge and rebase in one`
+* `ipvc branch pull [--replay] <refpath> # analagous to git merge and rebase in one`
 * `//ipvc branch publish [--all] # publish branch to IPNS`
 * `//ipvc branch unpublish [--all]`
 * `ipvc stage # status`
@@ -142,10 +143,8 @@ Note: commands not yet implemented are "commented" out
 
 ## TODO and Ideas
 In no particular order of importance
-* Fast forward merges
 * Optimize! Currently things are way too slow
 * Use aiohttp for async data transfer between ipfs and files
-* Merging/rebase
 * Export/import from/to git/mercurial
 * Picking lines when adding to stage, similar to git's `git add -p`
 * Permissions in metadata
