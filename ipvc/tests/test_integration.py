@@ -48,7 +48,10 @@ def setup_state(dir_path):
 
     # Copy everything from dir_path to cwd
     for f in glob.glob(str(dir_path / '*')):
-        shutil.copy(f, cwd / os.path.basename(f))
+        if os.path.isfile(f):
+            shutil.copy(f, cwd / os.path.basename(f))
+        else:
+            shutil.copytree(f, cwd / os.path.basename(f))
 
 
 def assert_state(dir_path):
@@ -61,14 +64,14 @@ def assert_state(dir_path):
 
     for r, dirs, files in os.walk('.'):
         for d in dirs:
-            dirs1.append(Path(r) / d)
+            dirs1.append(d)
         for f in files:
             files1.append(f)
             file_roots1.append(Path(r))
 
     for r, dirs, files in os.walk(dir_path):
         for d in dirs:
-            dirs2.append(Path(r) / d)
+            dirs2.append(d)
         for f in files:
             files2.append(f)
             file_roots2.append(Path(r))
