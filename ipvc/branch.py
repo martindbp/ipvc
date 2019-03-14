@@ -243,38 +243,46 @@ class BranchAPI(CommonAPI):
                 their_diff = list(_fdiff(their_change))
                 diff_diff = list(difflib.ndiff(our_diff, their_diff))
                 diff_diff = [l for l in diff_diff if not l.startswith('?')]
-                lines_in, lines_out = [], []
+                their_lines, our_lines, both_lines = [], [], []
                 f = open(self.fs_repo_root / filename, 'w')
                 for line in diff_diff:
-                    if line.startswith(' '):
-                        if  len(lines_out) > 0 and len(lines_in) > 0:
+                    if line.startswith('    '):
+                        if  len(our_lines) > 0 and len(their_lines) > 0:
                             has_merge_conflict = True
                             f.write('>>>>>>> ours\n')
-                            f.write('\n'.join(lines_out) + '\n')
+                            f.write('\n'.join(our_lines) + '\n')
                             f.write('======= theirs\n')
-                            f.write('\n'.join(lines_in) + '\n')
+                            f.write('\n'.join(their_lines) + '\n')
                             f.write('<<<<<<<\n')
                         else:
-                            # NOTE: one of lines_out/in will be empty
-                            for l in lines_in + lines_out:
+                            # NOTE: one of our_lines/in will be empty
+                            for l in their_lines + our_lines + both_lines:
                                 f.write(l + '\n')
                             has_merges = True
-                        lines_in, lines_out = [], []
+                        their_lines, our_lines, both_lines = [], [], []
                         f.write(line[4:] + '\n')
                     else:
                         if line.startswith('+ + ') or line.startswith('+   '):
                             # Difflines that start with + come in from their commit,
                             # use only the ones starting with + or space, meaning they
                             # were added or unmodified
-                            lines_in.append(line[4:])
+                            their_lines.append(line[4:])
                         elif line.startswith('- + ') or line.startswith('-   '):
                             # Similarly, the lines coming from our commit are the
                             # ones removed in the diff (leading minus), but present
                             # in the original diff (+ or space)
-                            lines_out.append(line[4:])
+                            our_lines.append(line[4:])
+                        elif line.startswith('  + '):
+                            # These are lines that both ours and theirs added
+                            # that were equal
+                            both_lines.append(line[4:])
+                        elif line.startswith('  - '):
+                            # These are lines that were removed in both ours and theirs,
+                            # so do nothing (don't keep them)
+                            pass
 
                 # Write the left over lines if there are any
-                for l in lines_in + lines_out:
+                for l in their_lines + our_lines + both_lines:
                     f.write(l + '\n')
                 f.close()
 
