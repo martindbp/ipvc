@@ -161,3 +161,4 @@ def test_integration(tests_dir, name, stop_command):
                 last_command_time = t
                 run_assert_command(test_root / str(i))
                 assert_state(test_root / str(i) / 'post')
+        break
