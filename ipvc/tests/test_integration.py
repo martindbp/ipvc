@@ -141,7 +141,9 @@ def test_integration(tests_dir, name, stop_command):
                         num_states += 1
                 break
 
+            print('######################################')
             print(f'Testing {test_dir}')
+            print('######################################')
             last_command_time = 0
             for i in range(num_states):
                 print(f'Testing command {i}')
