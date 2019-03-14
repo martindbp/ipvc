@@ -419,18 +419,20 @@ class BranchAPI(CommonAPI):
             curr_head_files_hash = their_files_hash
             # For each of our changeset, merge with the current head
             all_merged, all_pulled = set(), set()
-            for commit_hash, changes in zip(our_lca_path[1:], our_changes):
+            for h, fh, changes in zip(our_lca_path[1:], our_lca_files_hashes[1:],
+                                      our_changes):
                 merged_files, conflict_files, pulled_files = self._merge(
-                    changes, lca_to_head_changes, curr_head_files_hash)
+                    lca_to_head_changes, changes, fh)
                 all_merged = all_merged | merged_files
                 all_pulled = all_pulled | pulled_files
                 if len(conflict_files) > 0:
-                    self.print('There are merge conflicts, please resolve and the run `ipvc branch pull --resume`')
+                    self.print(('There are merge conflicts, please resolve and '
+                                'the run `ipvc branch pull --resume`'))
                     return all_pulled, all_merged, conflict_files
 
                 # No conflicts, so re-commit the changes with the same metadata as before
                 new_commit_hash = self.ipvc.stage.commit(
-                    commit_metadata=self.get_commit_metadata(commit_hash))
+                    commit_metadata=self.get_commit_metadata(h))
                 curr_head_files_hash = _ref_files_hash(new_commit_hash)
                 # Update the changes between lca and head
                 lca_to_head_changes = self._get_file_changes(
