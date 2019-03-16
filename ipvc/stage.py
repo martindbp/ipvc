@@ -31,8 +31,9 @@ class StageAPI(CommonAPI):
             self.print(('NOTE: you are in the merge conflict state, the next '
                         'commit will be the merge commit. To abort merge, run '
                         '`ipvc branch pull --abort`\n'))
+            return True
         except:
-            pass
+            return False
 
     @atomic
     def add(self, fs_paths=None):
@@ -167,5 +168,7 @@ class StageAPI(CommonAPI):
     def diff(self):
         """ Content diff from head to stage """
         self.common()
-        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
-        return self._diff(Path('@stage'), Path('@head'), files=False)
+        if not self._notify_pull_merge(self.fs_repo_root, self.active_branch):
+            changes = self._diff_changes(Path('@stage'), Path('@head'))
+            self.print(self._format_changes(changes, files=False))
+            return changes

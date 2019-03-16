@@ -7,4 +7,6 @@ class DiffAPI(CommonAPI):
 
     def run(self, to_refpath=Path("@workspace"), from_refpath=Path("@stage"), files=False):
         self.common()
-        return self._diff(to_refpath, from_refpath, files)
+        changes = self._diff_changes(to_refpath, from_refpath)
+        self.print(self._format_changes(changes, files=files))
+        return changes

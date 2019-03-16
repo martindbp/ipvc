@@ -121,18 +121,7 @@ class CommonAPI:
             print(*args, **kwargs, file=self.stderr)
 
     def print_changes(self, changes):
-        for change in changes:
-            type_ = change['Type']
-            before = (change['Before'] or {}).get('/', None)
-            after = (change['After'] or {}).get('/', None)
-            path = change['Path']
-            path = path + ' ' if path is not '' else ''
-            if type_ == 0:
-                self.print(f'+ {path}{after}')
-            elif type_ == 1:
-                self.print(f'- {path}{before}')
-            elif type_ == 2:
-                self.print(f'{path}{before} --> {after}')
+        self.print(self._format_changes(changes, files=True))
 
     def invalidate_cache(self, props=None):
         if props is None:
@@ -532,14 +521,21 @@ class CommonAPI:
 
         return mfs_to_refpath, mfs_from_refpath
 
-    def _diff(self, to_refpath, from_refpath, files):
-        # TODO: change the files parameter to 'diff_content_only'
-        to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
-        changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
+    def _format_changes(self, changes, files=False):
+        out = ''
         if files:
-            self.print_changes(changes)
-
-            return changes
+            for change in changes:
+                type_ = change['Type']
+                before = (change['Before'] or {}).get('/', None)
+                after = (change['After'] or {}).get('/', None)
+                path = change['Path']
+                path = path + ' ' if path is not '' else ''
+                if type_ == 0:
+                    out += f'+ {path}{after}\n'
+                elif type_ == 1:
+                    out += f'- {path}{before}\n'
+                elif type_ == 2:
+                    out += f'{path}{before} --> {after}\n'
         else:
             for change in changes:
                 from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
@@ -559,7 +555,13 @@ class CommonAPI:
                 diff = difflib.unified_diff(from_lines, to_lines, lineterm='',
                                             fromfile=from_file_path,
                                             tofile=to_file_path)
-                self.print('\n'.join(list(diff)[:-1]))
+                out += '\n'.join(list(diff)[:-1]) + '\n'
+        out = out.strip()
+        if len(out) == 0:
+            out = '--------------------'
+        return out
 
-            return changes
-
+    def _diff_changes(self, to_refpath, from_refpath):
+        to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
+        changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
+        return changes
