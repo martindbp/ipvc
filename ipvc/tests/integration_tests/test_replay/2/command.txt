@@ -1,1 +1,1 @@
-ipvc  --mfs-namespace /test stage commit Init
+ipvc  --mfs-namespace /test stage commit -m Init

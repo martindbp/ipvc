@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test stage commit "Add sugar"
+ipvc --mfs-namespace /test stage commit -m "Add sugar"

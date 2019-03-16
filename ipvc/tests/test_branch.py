@@ -42,9 +42,8 @@ def test_pull():
         ipvc.branch.pull('master')
 
     ipvc.stage.commit('msg2other')
-    pulled_files, merged_files, conflict_files = ipvc.branch.pull('master', replay=True)
+    _, merged_files, conflict_files = ipvc.branch.pull('master', replay=True)
     assert conflict_files == set(['test_file.txt'])
-    assert pulled_files == set(['other_file.txt'])
     assert merged_files == set(['test_file3.txt'])
     ipvc.branch.pull(abort=True)
 

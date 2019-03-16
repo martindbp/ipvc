@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test stage commit "Merge: keep both"
+ipvc --mfs-namespace /test stage commit -m "Merge: keep both"

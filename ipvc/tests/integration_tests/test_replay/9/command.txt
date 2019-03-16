@@ -1,1 +1,1 @@
-ipvc  --mfs-namespace /test stage commit 'Fix typo and add kale'
+ipvc  --mfs-namespace /test stage commit -m 'Fix typo and add kale'

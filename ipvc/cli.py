@@ -149,7 +149,7 @@ def main():
     stage_commit_parser = stage_subparsers.add_parser(
         'commit', description='Commit staged changes')
     stage_commit_parser.set_defaults(subcommand='commit')
-    stage_commit_parser.add_argument('message', help='commit message')
+    stage_commit_parser.add_argument('-m', '--message', help='Commit message')
 
     stage_uncommit_parser = stage_subparsers.add_parser(
         'uncommit', description='Uncommit last commit and leave the changes staged')
