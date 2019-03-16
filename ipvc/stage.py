@@ -2,6 +2,8 @@ import os
 import io
 import json
 import sys
+import tempfile
+from subprocess import call
 from pathlib import Path
 from datetime import datetime
 
@@ -106,6 +108,58 @@ class StageAPI(CommonAPI):
         """
         self.common()
 
+        changes = self._diff_changes(Path('@stage'), Path('@head'))
+        if len(changes) == 0:
+            self.print_err('Nothing to commit')
+            raise RuntimeError
+
+        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
+                                             branch_info='merge_parent')
+        is_merge = False
+        try:
+            self.ipfs.files_stat(mfs_merge_parent)
+            is_merge = True
+        except:
+            pass
+
+        # Create commit_metadata
+        if commit_metadata is None:
+            if message is None:
+                EDITOR = os.environ.get('EDITOR','vim')
+                initial_message = (
+                    '\n\n# Write your commit message above, then save and exit the editor.\n'
+                    '# Lines starting with # will be ignored.\n\n'
+                    '# To change the default editor, change the EDITOR environment variable.'
+                )
+                # Get the diff to stage from head
+                diff_str = self._format_changes(changes, files=False)
+                # Add comments to all lines
+                diff_str = diff_str.replace('\n', '\n# ')
+                if len(diff_str) > 0:
+                    # Prepend some newlines and description only if there is a diff
+                    diff_str = '\n\n# ' + diff_str
+                initial_message += diff_str
+                with tempfile.NamedTemporaryFile(suffix=".tmp") as tf:
+                    tf.write(bytes(initial_message, 'utf-8'))
+                    tf.flush()
+                    call([EDITOR, tf.name])
+                    with open(tf.name) as tf2:
+                        message_lines = [l for l in tf2.readlines()
+                                         if not l.startswith('#') and len(l.strip()) > 0]
+                        message = '\n'.join(message_lines)
+
+            if len(message) == 0:
+                self.print_err('Aborting: Commit message is empty')
+                raise RuntimeError
+
+            params = self.read_global_params()
+            commit_metadata = {
+                'message': message,
+                'author': params.get('author', None),
+                'timestamp': datetime.utcnow().isoformat(),
+                'is_merge': is_merge
+            }
+
         mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
         mfs_stage = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='stage')
         head_hash = self.ipfs.files_stat(mfs_head)['Hash']
@@ -126,9 +180,6 @@ class StageAPI(CommonAPI):
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
         # Add merge_parent to merged head if this was a merge commit
-        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
-                                             branch_info='merge_parent')
-        is_merge = False
         try:
             self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
             mfs_merge_stage_backup = self.get_mfs_path(
@@ -138,20 +189,10 @@ class StageAPI(CommonAPI):
             self.ipfs.files_rm(mfs_merge_parent, recursive=True)
             self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
             self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
-            is_merge = True
         except:
             pass
 
         # Add commit metadata
-        if commit_metadata is None:
-            params = self.read_global_params()
-            commit_metadata = {
-                'message': message,
-                'author': params.get('author', None),
-                'timestamp': datetime.utcnow().isoformat(),
-                'is_merge': is_merge
-            }
-
         metadata_bytes = io.BytesIO(json.dumps(commit_metadata).encode('utf-8'))
         self.ipfs.files_write(
             f'{mfs_head}/commit_metadata', metadata_bytes, create=True, truncate=True)
