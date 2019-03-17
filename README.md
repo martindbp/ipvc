@@ -134,7 +134,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc diff content <to-refpath> <from-refpath>`
 
 ## How
-* Uses in Python 3.6, with go-ipfs as the IPFS server
+* Uses Python 3.6, with go-ipfs as the IPFS server
 * Keeps track of the current state of the workspace, the staging area and the head of each branch. The workspace state is updated before every IPVC command is carried out
 * Leverages the IPFS mutable files system (MFS) for easy book-keeping of repositories and branches and commits
 * Stores repositories and branches as folder and subfolders on the MFS as well as global settings
@@ -144,23 +144,26 @@ Note: commands not yet implemented are "commented" out
 
 ## TODO and Ideas
 In no particular order of importance
+
+### Features
+* Downloading branches from other people (git pull)
+* Branch rewrite, similar to rebase -i
+* Publishing to IPNS
+* Export/import from/to git/mercurial
+* Fix handling of file permissions, so that such changes can be seen and added
+* Tags
+* Follow + store symlinks in metadata
+* Picking lines when adding to stage, similar to git's `git add -p`
+* Virtual repos (in IPFS/MFS only, not on the filesystem)
+* Partial branch checkout
+* Encryption of data/commits?
+* Issues, pull requests, discussions etc via pubsub and CRDTs
+* Equivalent of ignore file
+* Generate a browsable static website for a repo like a github project
+
+### Other
 * Optimize! Currently things are way too slow
 * Use aiohttp for async data transfer between ipfs and files
-* Export/import from/to git/mercurial
-* Picking lines when adding to stage, similar to git's `git add -p`
-* Permissions in metadata
-* Tags
-* Commit messages in editor of choice
-* Follow + store symlinks in metadata
-* Virtual repos (in IPFS/MFS only, not on the filesystem)
-* A server with GUI
-* Encryption of data/commits?
-* Partial branch checkout
-* Issues, pull requests, discussions etc via pubsub and CRDTs
-* Generate a browsable static website for a repo like a github project
-* Equivalent of ignore file
-* Specifying ipfs node to communicate with
-* Fix handling of file permissions, so that such changes can be seen and added
 
 ## Testing
 There are two levels of tests, in pytest, and a command line test.
