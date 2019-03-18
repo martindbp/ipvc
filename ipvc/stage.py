@@ -209,7 +209,7 @@ class StageAPI(CommonAPI):
     def diff(self):
         """ Content diff from head to stage """
         self.common()
-        if not self._notify_pull_merge(self.fs_repo_root, self.active_branch):
-            changes = self._diff_changes(Path('@stage'), Path('@head'))
-            self.print(self._format_changes(changes, files=False))
-            return changes
+        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
+        changes = self._diff_changes(Path('@stage'), Path('@head'))
+        self.print(self._format_changes(changes, files=False))
+        return changes
