@@ -104,6 +104,7 @@ def test_pull():
 
     # Test fast-forward merges
     write_file(REPO / 'ff_file.txt', 'hello world')
+    ipvc.stage.add(REPO / 'ff_file.txt')
     ff_hash = ipvc.stage.commit('ff')
     ipvc.branch.checkout('master')
     ipvc.branch.pull('other')
