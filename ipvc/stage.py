@@ -108,11 +108,6 @@ class StageAPI(CommonAPI):
         """
         self.common()
 
-        changes = self._diff_changes(Path('@stage'), Path('@head'))
-        if len(changes) == 0:
-            self.print_err('Nothing to commit')
-            raise RuntimeError
-
         mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
                                              branch_info='merge_parent')
         is_merge = False
@@ -121,6 +116,11 @@ class StageAPI(CommonAPI):
             is_merge = True
         except:
             pass
+
+        changes = self._diff_changes(Path('@stage'), Path('@head'))
+        if not is_merge and len(changes) == 0:
+            self.print_err('Nothing to commit')
+            raise RuntimeError
 
         # Create commit_metadata
         if commit_metadata is None:
