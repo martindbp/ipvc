@@ -118,7 +118,7 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch reset [<path>] # reset workspace at path`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
-* `ipvc branch history rewrite # analagous to git rebase -i
+* `ipvc branch rewrite # analagous to git rebase -i
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
 * `ipvc branch pull [--replay] <refpath> # analagous to git merge and rebase in one`

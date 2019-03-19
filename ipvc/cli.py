@@ -101,6 +101,14 @@ def main():
     branch_history_parser.add_argument(
         '-s', '--show-hash', action='store_true', help='Shows hashes to commit content')
 
+    branch_rewrite = branch_subparsers.add_parser(
+        'rewrite', description='Rewrite branch history up to the last merge')
+    branch_rewrite.set_defaults(subcommand='history')
+    branch_rewrite.add_argument(
+        '-n', '--num-ancestors', type=int, help=('Number of ancestors to include. '
+        'If last merge is closer than n steps, then that number supercedes this parameter'),
+        default=10)
+
     branch_show_parser = branch_subparsers.add_parser(
         'show', description='Show what\'s at a refpath (ls if folder, cat if file)')
     branch_show_parser.set_defaults(subcommand='show')
