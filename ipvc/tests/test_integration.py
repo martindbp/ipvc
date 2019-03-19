@@ -94,7 +94,7 @@ def assert_output(correct, actual):
         assert c1 == c2 or c1 == '*', (correct, actual)
 
 
-def run_assert_command(test_command_root):
+def run_assert_command(test_command_root, stop):
     command = None
     with open(test_command_root / 'command.txt', 'r') as f:
         command = f.read()
@@ -104,6 +104,9 @@ def run_assert_command(test_command_root):
     with  open(test_command_root / 'stderr.txt', 'r') as f:
         stderr = f.read()
     print(f'Running command: {command}')
+
+    if stop:
+        import pdb; pdb.set_trace()
 
     ret = subprocess.run(command, shell=True, stderr=PIPE, stdout=PIPE)
     assert_output(stdout, str(ret.stdout, 'utf-8'))
@@ -148,8 +151,7 @@ def test_integration(tests_dir, name, stop_command):
             for i in range(num_states):
                 print(f'Testing command {i}')
                 setup_state(test_root / str(i) / 'pre')
-                if (name is None or test_dir == name) and str(i) == stop_command:
-                    import pdb; pdb.set_trace()
+                stop = (name is None or test_dir == name) and str(i) == stop_command
                 t = time()
                 # Make sure there is always at least a second between commands
                 # since unix file timestamp resolution is a second and we
@@ -159,6 +161,6 @@ def test_integration(tests_dir, name, stop_command):
                     print(f'Sleeping {s:.2f}s')
                     sleep(s)
                 last_command_time = t
-                run_assert_command(test_root / str(i))
+                run_assert_command(test_root / str(i), stop)
                 assert_state(test_root / str(i) / 'post')
         break
