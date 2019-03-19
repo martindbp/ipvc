@@ -122,6 +122,8 @@ def main():
     branch_pull_parser.add_argument(
         '-a', '--abort', action='store_true', help='Aborts pull, after merge has been attempted')
     branch_pull_parser.add_argument(
+        '-s', '--resume', action='store_true', help='Resume replay after resolving merge conflict')
+    branch_pull_parser.add_argument(
         '-r', '--replay', action='store_true', help='Takes their branch and re-applies our commits on top of it')
     branch_pull_parser.add_argument(
         'their_branch', nargs='?', help='the name of their branch to pull changes from')

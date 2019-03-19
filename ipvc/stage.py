@@ -110,6 +110,8 @@ class StageAPI(CommonAPI):
 
         mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
                                              branch_info='merge_parent')
+        mfs_replay_offset = self.get_mfs_path(self.fs_repo_root, self.active_branch,
+                                             branch_info='replay_offset')
         is_merge = False
         try:
             self.ipfs.files_stat(mfs_merge_parent)
@@ -117,8 +119,15 @@ class StageAPI(CommonAPI):
         except:
             pass
 
+        is_replay = False
+        try:
+            self.ipfs.files_stat(mfs_replay_offset)
+            is_replay = True
+        except:
+            pass
+
         changes = self._diff_changes(Path('@stage'), Path('@head'))
-        if not is_merge and len(changes) == 0:
+        if not (is_merge or is_replay) and len(changes) == 0:
             self.print_err('Nothing to commit')
             raise RuntimeError
 
@@ -157,7 +166,8 @@ class StageAPI(CommonAPI):
                 'message': message,
                 'author': params.get('author', None),
                 'timestamp': datetime.utcnow().isoformat(),
-                'is_merge': is_merge
+                'is_merge': is_merge,
+                'is_replay': is_replay
             }
 
         mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
@@ -179,17 +189,19 @@ class StageAPI(CommonAPI):
         # Add parent pointer to previous head
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
-        # Add merge_parent to merged head if this was a merge commit
-        try:
+        if is_merge and not is_replay:
+            # Add merge_parent to merged head if this was a merge commit
+            # and remove backups
             self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
-            mfs_merge_stage_backup = self.get_mfs_path(
-                self.fs_repo_root, self.active_branch, branch_info='merge_stage_backup')
-            mfs_merge_workspace_backup = self.get_mfs_path(
-                self.fs_repo_root, self.active_branch, branch_info='merge_workspace_backup')
-            self.ipfs.files_rm(mfs_merge_parent, recursive=True)
-            self.ipfs.files_rm(mfs_merge_stage_backup, recursive=True)
-            self.ipfs.files_rm(mfs_merge_workspace_backup, recursive=True)
-        except:
+
+            for ref in ['parent', 'head', 'stage', 'workspace']:
+                p = self.get_mfs_path(
+                    self.fs_repo_root, self.active_branch,
+                    branch_info=f'merge_{ref}')
+                self.ipfs.files_rm(p, recursive=True)
+        elif is_replay:
+            # We do nothing, we keep the backup references since we need them
+            # to resume the replay
             pass
 
         # Add commit metadata
