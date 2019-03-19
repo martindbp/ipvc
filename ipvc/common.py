@@ -21,7 +21,12 @@ def expand_ref(ref: str):
         ref = ref.replace('^', '/merge_parent')
     elif ref.startswith('@'):
         ref = ref[1:]
-    return ref
+
+    base = None
+    for r in ['head', 'stage', 'workspace']:
+        if ref.startswith(r):
+            base = r
+    return base, ref
 
 
 def separate_refpath(refpath: Path):
@@ -151,8 +156,8 @@ class CommonAPI:
         """
         ref, path = separate_refpath(refpath)
         if ref is not None:
-            ref = expand_ref(ref)
-            if ref in ['head', 'workspace', 'stage']:
+            base, ref = expand_ref(ref)
+            if base in ['head', 'workspace', 'stage']:
                 return None, ref / Path('bundle/files') / path, path
             elif ref in self.branches:
                 return (ref, *self.refpath_to_mfs(Path(path))[1:])

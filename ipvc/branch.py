@@ -51,7 +51,7 @@ class BranchAPI(CommonAPI):
             self.invalidate_cache(['branches'])
 
             # Copy the commit to the new branch's head
-            commit_path = expand_ref(from_commit)
+            _, commit_path = expand_ref(from_commit)
             mfs_commit_path = self.get_mfs_path(
                 self.fs_cwd, self.active_branch, branch_info=commit_path)
             mfs_head_path = self.get_mfs_path(
@@ -519,7 +519,7 @@ class BranchAPI(CommonAPI):
     @atomic
     def show(self, refpath, browser=False):
         """ Opens a ref in the ipfs file browser """
-        commit_files_hash = self.get_refpath_files_hash(refpath)
+        commit_files_hash = self.get_refpath_files_hash(Path(refpath))
         if browser:
             # TODO: read IPFS node url from settings
             url = f'http://localhost:8080/ipfs/{commit_files_hash}'
