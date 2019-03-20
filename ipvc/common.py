@@ -180,7 +180,7 @@ class CommonAPI:
             return path
         # Encode the repo path in hex so that we can store the path
         # information in the directory name itself. Then there's no need to name
-        # it and # store the path some other way
+        # it and store the path some other way
         repo_hex = str(fs_repo_root).encode('utf-8').hex()
         path = path / 'repos' / repo_hex
         if repo_info is not None:
