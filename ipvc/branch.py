@@ -224,9 +224,11 @@ class BranchAPI(CommonAPI):
         Assumes that current fs repo has 'our_file_changes' in it already.
         """
         def _fdiff(change):
-            from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')
+            # NOTE: remove the last lines because text files always end with
+            # a newline, so it would introduce a new empty line at the end
+            from_lines = (self.ipfs.cat(change['Before']['/']).decode('utf-8').split('\n')[:-1]
                           if change['Before'] is not None else [])
-            to_lines = (self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')
+            to_lines = (self.ipfs.cat(change['After']['/']).decode('utf-8').split('\n')[:-1]
                         if change['After'] is not None else [])
             return difflib.ndiff(from_lines, to_lines)
 
@@ -255,7 +257,6 @@ class BranchAPI(CommonAPI):
                             f.write('\n'.join(their_lines) + '\n')
                             f.write('<<<<<<<\n')
                         else:
-                            # NOTE: one of our_lines/in will be empty
                             for l in their_lines + our_lines + both_lines:
                                 f.write(l + '\n')
                             has_merges = True
