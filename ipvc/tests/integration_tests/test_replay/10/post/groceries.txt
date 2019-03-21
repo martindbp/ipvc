@@ -7,4 +7,3 @@ flower
 raspberries
 honey
 eggs
-
