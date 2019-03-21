@@ -54,6 +54,12 @@ def setup_state(dir_path):
         else:
             shutil.copytree(f, cwd / os.path.basename(f))
 
+    # NOTE to self, for some reason we get a Heisenbug where the state
+    # of the folder is still the old one, like it was never updated after this
+    # function call. While debugging, I added this line, after which I never
+    # encountered his bug again.
+    assert_state(dir_path)
+
 
 def assert_state(dir_path):
     file_roots1 = []
