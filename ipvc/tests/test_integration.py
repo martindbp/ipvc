@@ -94,10 +94,32 @@ def assert_state(dir_path):
             assert ff1.read() == ff2.read()
 
 
+def ask_replace(correct, actual):
+    print('Output not matching:')
+    print('Correct:')
+    print(correct)
+    print('Actual:')
+    print(actual)
+    answer = input(('Do you want to update the test by replacing the '
+                    'correct with actual (y/n)?'))
+    return answer == 'y'
+
+
 def assert_output(correct, actual):
-    assert len(correct) == len(actual)
+    if len(correct) != len(actual):
+        if ask_replace(correct, actual):
+            return True
+    else:
+        assert len(correct) == len(actual)
+
+    answered = False
     for c1, c2 in zip(correct, actual):
-        assert c1 == c2 or c1 == '*', (correct, actual)
+        if not (c1 == c2 or c1 == '*'):
+            if ask_replace(correct, actual):
+                return True
+            else:
+                assert c1 == c2 or c1 == '*', (correct, actual)
+    return False
 
 
 def run_assert_command(test_command_root, stop):
@@ -115,8 +137,15 @@ def run_assert_command(test_command_root, stop):
         import pdb; pdb.set_trace()
 
     ret = subprocess.run(command, shell=True, stderr=PIPE, stdout=PIPE)
-    assert_output(stdout, str(ret.stdout, 'utf-8'))
-    assert_output(stderr, str(ret.stderr, 'utf-8'))
+    if assert_output(stdout, str(ret.stdout, 'utf-8')):
+        # Replace
+        with  open(test_command_root / 'stdout.txt', 'w') as f:
+            f.write(str(ret.stdout, 'utf-8'))
+    if assert_output(stderr, str(ret.stderr, 'utf-8')):
+        # Replace
+        with  open(test_command_root / 'stderr.txt', 'w') as f:
+            f.write(str(ret.stderr, 'utf-8'))
+
     if len(stdout) > 0:
         print('stdout ---------------------')
         print(stdout)
