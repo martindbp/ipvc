@@ -247,6 +247,31 @@ class BranchAPI(CommonAPI):
                 diff_diff = [l for l in diff_diff if not l.startswith('?')]
                 their_lines, our_lines, both_lines = [], [], []
                 f = open(self.fs_repo_root / filename, 'w')
+
+                # Add a sentinel value so that we spit out any conflicts that
+                # are left
+                diff_diff = diff_diff + ['    ']
+
+                # Lines start with two signs, each of which can be +, - or space
+                # Let's enumerate the 9 possibilities:
+                # * First sign is
+                #   1. space: both diffs has this diff-line
+                #       * The second sign is:
+                #           1. space: line was unmodified in *both* commits
+                #           2. +: line was added in *both* commits
+                #           3. -: line was removed in *both* commits
+                #   2. +: this diff-line appears only in *their* commit
+                #           1. space: line was unmodified in *their* commit
+                #           2. +: line was added in *their* commits
+                #           3. -: line was removed in *their* commits
+                #   3. -: this diff-line appears only in *our* commit
+                #           1. space: line was unmodified in *our* commits
+                #           2. +: line was added in *our* commits
+                #           3. -: line was removed in *our* commits
+                # We keep track of lines that are added by either commit or
+                # lines that stay the same in both, then output conflicts between
+                # "stable" lines where there are different lines coming from both commits
+
                 for line in diff_diff:
                     if line.startswith('    '):
                         if  len(our_lines) > 0 and len(their_lines) > 0:
@@ -261,7 +286,12 @@ class BranchAPI(CommonAPI):
                                 f.write(l + '\n')
                             has_merges = True
                         their_lines, our_lines, both_lines = [], [], []
-                        f.write(line[4:] + '\n')
+
+                        if line == '    ':
+                            # It's the sentinel value
+                            break
+                        else:
+                            f.write(line[4:] + '\n')
                     else:
                         if line.startswith('+ + ') or line.startswith('+   '):
                             # Difflines that start with + come in from their commit,
@@ -275,16 +305,12 @@ class BranchAPI(CommonAPI):
                             our_lines.append(line[4:])
                         elif line.startswith('  + '):
                             # These are lines that both ours and theirs added
-                            # that were equal
                             both_lines.append(line[4:])
                         elif line.startswith('  - '):
                             # These are lines that were removed in both ours and theirs,
                             # so do nothing (don't keep them)
                             pass
 
-                # Write the left over lines if there are any
-                for l in their_lines + our_lines + both_lines:
-                    f.write(l + '\n')
                 f.close()
 
             if not has_merge_conflict:
@@ -488,6 +514,7 @@ class BranchAPI(CommonAPI):
             for ref in ['head', 'stage', 'workspace', 'replay_offset']:
                 self.ipfs.files_rm(mfs_merge_paths[ref], recursive=True)
 
+            return all_pulled, all_merged, set()
         else:
             our_lca_changes = self._get_file_changes(lca_files_hash, our_file_hashes['head'])
             merged_files, conflict_files, pulled_files = self._merge(
