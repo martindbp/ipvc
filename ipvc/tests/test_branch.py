@@ -53,10 +53,10 @@ def test_pull():
     assert merged_files == set(['test_file3.txt'])
     conflict_lines = [
         'line1',
-        '>>>>>>> ours',
+        '>>>>>>> other (ours)',
         'line2',
         'blerg',
-        '======= theirs',
+        '======= master (theirs)',
         'other',
         'line3',
         '<<<<<<<',

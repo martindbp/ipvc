@@ -216,7 +216,8 @@ class BranchAPI(CommonAPI):
         changes = self.ipfs.object_diff(from_hash, to_hash)['Changes']
         return {change['Path']: change for change in changes}
 
-    def _merge(self, our_file_changes, their_file_changes, their_files_hash):
+    def _merge(self, our_file_changes, our_branch,
+               their_file_changes, their_files_hash, their_branch):
         """
         Takes changes from `their_file_changes` and merges them with `our_file_changes`,
         and writes the merged files to disk, with conflict markers if there are conflicts,
@@ -276,9 +277,9 @@ class BranchAPI(CommonAPI):
                     if line.startswith('    '):
                         if  len(our_lines) > 0 and len(their_lines) > 0:
                             has_merge_conflict = True
-                            f.write('>>>>>>> ours\n')
+                            f.write(f'>>>>>>> {our_branch} (ours)\n')
                             f.write('\n'.join(our_lines) + '\n')
-                            f.write('======= theirs\n')
+                            f.write(f'======= {their_branch} (theirs)\n')
                             f.write('\n'.join(their_lines) + '\n')
                             f.write('<<<<<<<\n')
                         else:
@@ -491,7 +492,7 @@ class BranchAPI(CommonAPI):
                     create=True, truncate=True)
 
                 merged_files, conflict_files, pulled_files = self._merge(
-                    curr_lca_to_head_changes, changes, fh)
+                    curr_lca_to_head_changes, branch, changes, fh, their_branch)
                 all_merged = all_merged | merged_files
                 all_pulled = all_pulled | pulled_files
                 if len(conflict_files) > 0:
@@ -518,7 +519,7 @@ class BranchAPI(CommonAPI):
         else:
             our_lca_changes = self._get_file_changes(lca_files_hash, our_file_hashes['head'])
             merged_files, conflict_files, pulled_files = self._merge(
-                our_lca_changes, their_file_changes, their_files_hash)
+                our_lca_changes, branch, their_file_changes, their_files_hash, their_branch)
 
             if lca_commit_hash == our_hashes['head'] and not no_fast_forward:
                 # This is a fast-forward merge, just update the head
