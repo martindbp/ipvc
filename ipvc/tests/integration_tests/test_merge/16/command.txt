@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test branch ls
+ipvc  --mfs-namespace /test diff

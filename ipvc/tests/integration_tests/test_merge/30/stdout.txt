@@ -1,2 +1,3 @@
-Merge conflict in groceries.txt
-Pull produced merge conflicts. Edit the conflicts and commit, or run `ipvc branch pull --abort` to abort
+* **************************                                  Merge: keep both
+* **************************                                  Add chocolate
+* **************************                                  Add groceries

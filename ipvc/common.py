@@ -570,3 +570,31 @@ class CommonAPI:
         to_refpath, from_refpath = self._diff_resolve_refs(to_refpath, from_refpath)
         changes, *_ = self.get_mfs_changes(from_refpath, to_refpath)
         return changes
+
+    def _resolve_merge_conflict(self):
+        pass
+
+    def _get_editor_commit_message(self, initial=''):
+        EDITOR = os.environ.get('EDITOR', 'vim')
+        initial_message = (
+            f'{initial}\n\n# Write your commit message above, then save and exit the editor.\n'
+            '# Lines starting with # will be ignored.\n\n'
+            '# To change the default editor, change the EDITOR environment variable.'
+        )
+        # Get the diff to stage from head
+        diff_str = self._format_changes(changes, files=False)
+        # Add comments to all lines
+        diff_str = diff_str.replace('\n', '\n# ')
+        if len(diff_str) > 0:
+            # Prepend some newlines and description only if there is a diff
+            diff_str = '\n\n# ' + diff_str
+        initial_message += diff_str
+        with tempfile.NamedTemporaryFile(suffix=".tmp") as tf:
+            tf.write(bytes(initial_message, 'utf-8'))
+            tf.flush()
+            call([EDITOR, tf.name])
+            with open(tf.name) as tf2:
+                message_lines = [l for l in tf2.readlines()
+                                 if not l.startswith('#') and len(l.strip()) > 0]
+                message = '\n'.join(message_lines)
+        return message

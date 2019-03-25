@@ -1,3 +1,0 @@
-master
-other_recipe
-third_recipe

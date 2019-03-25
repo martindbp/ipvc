@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test --delete-mfs repo init
+ipvc  --mfs-namespace /test --delete-mfs repo init

@@ -1,3 +1,2 @@
 No staged changes
-Unstaged:
-+ groceries.txt QmWQL8xTbfDdns3QZtPUYLx969xd5bfoPYz7sgdxEFjkU4
+No unstaged changes

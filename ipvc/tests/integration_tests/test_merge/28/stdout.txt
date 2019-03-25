@@ -1,2 +1,5 @@
-Changes:
-QmWQL8xTbfDdns3QZtPUYLx969xd5bfoPYz7sgdxEFjkU4 --> QmUdwoB2yoQtgA3mV64uVzzeyuDfqJp3wEAwtQhTEQgVKf
+Merge conflict in groceries.txt
+Pull produced merge conflicts.
+Edit the conflicts and run `ipvc branch pull --resolve [--message <msg>]`
+Or run `ipvc branch pull --resolve` to bring up your editor of choice
+To abort, run `ipvc branch pull --abort`

@@ -2,7 +2,6 @@ blueberries
 bananas
 milk
 butter
-sugar
 cream
 flower
 raspberries

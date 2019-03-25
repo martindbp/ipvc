@@ -2,11 +2,8 @@ blueberries
 bananas
 milk
 butter
->>>>>>> ours
 chocolate
-======= theirs
 sugar
-<<<<<<<
 cream
 flower
 raspberries

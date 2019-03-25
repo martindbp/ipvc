@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test branch create --from-commit @head~ third_recipe
+ipvc  --mfs-namespace /test branch ls

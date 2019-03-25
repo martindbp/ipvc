@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test branch pull other_recipe
+ipvc  --mfs-namespace /test branch history

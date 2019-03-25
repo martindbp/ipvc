@@ -1,0 +1,9 @@
+bananas
+butter
+milk
+>>>>>>> master (ours)
+blueberries
+======= other (theirs)
+raspberries
+<<<<<<<
+chocolate

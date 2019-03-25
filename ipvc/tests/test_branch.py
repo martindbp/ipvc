@@ -97,8 +97,14 @@ def test_pull():
     # Pull again and fix the merge and commit this time
     ipvc.branch.pull('master')
 
-    ipvc.stage.add(REPO / 'test_file.txt')
-    ipvc.stage.commit('msg')
+    with pytest.raises(RuntimeError):
+        # Should raise because conflict markers are still there
+        ipvc.branch.pull(resolve=True, message='msg')
+
+    # "Fix"
+    write_file(REPO / 'test_file.txt', '\n'.join(merged_lines))
+    ipvc.branch.pull(resolve=True, message='msg')
+
     # Latest commit must have a merge parent
     assert ipvc.branch.history()[0][-1] is not None
 
@@ -112,9 +118,6 @@ def test_pull():
     assert history[0][0] == ff_hash
     # Doesn't have a merge parent
     assert history[0][-1] == None
-
-    # Test replay
-    #ipvc.branch.create('replaybranch', from_commit='@head~')
 
     ipvc.print_ipfs_profile_info()
 

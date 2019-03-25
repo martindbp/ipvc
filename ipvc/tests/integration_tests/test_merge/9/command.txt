@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test stage add groceries.txt
+ipvc  --mfs-namespace /test stage commit -m 'Add groceries'

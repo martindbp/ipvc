@@ -1,0 +1,1 @@
+ipvc  --delete-mfs --mfs-namespace /test repo init

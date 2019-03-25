@@ -130,9 +130,11 @@ def main():
     branch_pull_parser.add_argument(
         '-a', '--abort', action='store_true', help='Aborts pull, after merge has been attempted')
     branch_pull_parser.add_argument(
-        '-s', '--resume', action='store_true', help='Resume replay after resolving merge conflict')
+        '-s', '--resolve', action='store_true', help='Resolve a merge conflict, then continue (if replay)')
     branch_pull_parser.add_argument(
         '-r', '--replay', action='store_true', help='Takes their branch and re-applies our commits on top of it')
+    branch_pull_parser.add_argument(
+        '-m', '--message', help='Commit message used for resolving merge')
     branch_pull_parser.add_argument(
         'their_branch', nargs='?', help='the name of their branch to pull changes from')
 
@@ -214,7 +216,7 @@ def main():
         os.makedirs(n_path)
         shutil.copytree(cwd, n_path / 'pre')
         with open(n_path / 'command.txt', 'w') as f:
-            f.write(command + '\n')
+            f.write(command)
         stdout_file = open(n_path / 'stdout.txt', 'w')
         stderr_file = open(n_path / 'stderr.txt', 'w')
 
@@ -240,7 +242,8 @@ def main():
             if stdout_file is not None:
                 stdout_file.close()
                 stderr_file.close()
-            shutil.rmtree(n_path)
+            if n_path:
+                shutil.rmtree(n_path)
             raise
 
     if record_dir is not None:

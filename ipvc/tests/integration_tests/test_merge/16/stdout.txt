@@ -1,2 +1,1 @@
-master
-other_recipe
+--------------------

@@ -3,6 +3,7 @@ bananas
 milk
 butter
 chocolate
+sugar
 cream
 flower
 raspberries

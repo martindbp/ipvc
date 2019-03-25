@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test branch create other_recipe
+ipvc  --mfs-namespace /test branch

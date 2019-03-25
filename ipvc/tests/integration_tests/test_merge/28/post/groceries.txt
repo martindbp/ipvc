@@ -2,7 +2,11 @@ blueberries
 bananas
 milk
 butter
+>>>>>>> third_recipe (ours)
 chocolate
+======= other_recipe (theirs)
+sugar
+<<<<<<<
 cream
 flower
 raspberries

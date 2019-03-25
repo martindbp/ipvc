@@ -26,13 +26,13 @@ class StageAPI(CommonAPI):
                 self.print_err(f'Path outside workspace {fs_path}')
                 raise
 
-    def _notify_pull_merge(self, fs_repo_root, branch):
+    def _notify_conflict(self, fs_repo_root, branch):
         mfs_merge_parent = self.get_mfs_path(fs_repo_root, branch, branch_info='merge_parent')
         try:
             self.ipfs.files_stat(mfs_merge_parent)
-            self.print(('NOTE: you are in the merge conflict state, the next '
-                        'commit will be the merge commit. To abort merge, run '
-                        '`ipvc branch pull --abort`\n'))
+            self.print(('You are in the merge conflict state. To resolve '
+                        'first edit conflict, then run `ipvc branch pull --resolve`\n'
+                        'To abort merge, run `ipvc branch pull --abort`'))
             return True
         except:
             return False
@@ -78,7 +78,7 @@ class StageAPI(CommonAPI):
     def status(self):
         """ Show diff between workspace and stage, and between stage and head """
         self.common()
-        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
+        self._notify_conflict(self.fs_repo_root, self.active_branch)
 
         head_stage_changes, *_ = self.get_mfs_changes(
             'head/bundle/files', 'stage/bundle/files')
@@ -100,62 +100,28 @@ class StageAPI(CommonAPI):
         return head_stage_changes, stage_workspace_changes
 
     @atomic
-    def commit(self, message=None, commit_metadata=None):
+    def commit(self, message=None, commit_metadata=None, merge_parent=None):
         """ Creates a new commit with the staged changes and returns new commit hash
 
         If commit_metadata is provided instead of message, then it will be used instead
         of generating new metadata
         """
         self.common()
+        programmatic_commit = commit_metadata is not None
+        if (not programmatic_commit and
+                self._notify_conflict(self.fs_repo_root, self.active_branch)):
+            raise RuntimeError
 
-        mfs_merge_parent = self.get_mfs_path(self.fs_repo_root, self.active_branch,
-                                             branch_info='merge_parent')
-        mfs_replay_offset = self.get_mfs_path(self.fs_repo_root, self.active_branch,
-                                             branch_info='replay_offset')
-        is_merge = False
-        try:
-            self.ipfs.files_stat(mfs_merge_parent)
-            is_merge = True
-        except:
-            pass
-
-        is_replay = False
-        try:
-            self.ipfs.files_stat(mfs_replay_offset)
-            is_replay = True
-        except:
-            pass
 
         changes = self._diff_changes(Path('@stage'), Path('@head'))
-        if not (is_merge or is_replay) and len(changes) == 0:
+        if not programmatic_commit and len(changes) == 0:
             self.print_err('Nothing to commit')
             raise RuntimeError
 
-        # Create commit_metadata
+        # Create commit_metadata if not provided
         if commit_metadata is None:
             if message is None:
-                EDITOR = os.environ.get('EDITOR','vim')
-                initial_message = (
-                    '\n\n# Write your commit message above, then save and exit the editor.\n'
-                    '# Lines starting with # will be ignored.\n\n'
-                    '# To change the default editor, change the EDITOR environment variable.'
-                )
-                # Get the diff to stage from head
-                diff_str = self._format_changes(changes, files=False)
-                # Add comments to all lines
-                diff_str = diff_str.replace('\n', '\n# ')
-                if len(diff_str) > 0:
-                    # Prepend some newlines and description only if there is a diff
-                    diff_str = '\n\n# ' + diff_str
-                initial_message += diff_str
-                with tempfile.NamedTemporaryFile(suffix=".tmp") as tf:
-                    tf.write(bytes(initial_message, 'utf-8'))
-                    tf.flush()
-                    call([EDITOR, tf.name])
-                    with open(tf.name) as tf2:
-                        message_lines = [l for l in tf2.readlines()
-                                         if not l.startswith('#') and len(l.strip()) > 0]
-                        message = '\n'.join(message_lines)
+                message = self._get_editor_commit_message()
 
             if len(message) == 0:
                 self.print_err('Aborting: Commit message is empty')
@@ -166,9 +132,12 @@ class StageAPI(CommonAPI):
                 'message': message,
                 'author': params.get('author', None),
                 'timestamp': datetime.utcnow().isoformat(),
-                'is_merge': is_merge,
-                'is_replay': is_replay
             }
+
+            if merge_parent is not None:
+                # Could be useful, so we don't have to check for 'merge_parent'
+                # in mfs when printing history etc
+                commit_metadata['is_merge'] = True
 
         mfs_head = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='head')
         mfs_stage = self.get_mfs_path(self.fs_repo_root, self.active_branch, branch_info='stage')
@@ -189,20 +158,9 @@ class StageAPI(CommonAPI):
         # Add parent pointer to previous head
         self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
 
-        if is_merge and not is_replay:
+        if merge_parent is not None:
             # Add merge_parent to merged head if this was a merge commit
-            # and remove backups
-            self.ipfs.files_cp(mfs_merge_parent, f'{mfs_head}/merge_parent')
-
-            for ref in ['parent', 'head', 'stage', 'workspace']:
-                p = self.get_mfs_path(
-                    self.fs_repo_root, self.active_branch,
-                    branch_info=f'merge_{ref}')
-                self.ipfs.files_rm(p, recursive=True)
-        elif is_replay:
-            # We do nothing, we keep the backup references since we need them
-            # to resume the replay
-            pass
+            self.ipfs.files_cp(merge_parent, f'{mfs_head}/merge_parent')
 
         # Add commit metadata
         metadata_bytes = io.BytesIO(json.dumps(commit_metadata).encode('utf-8'))
@@ -221,7 +179,7 @@ class StageAPI(CommonAPI):
     def diff(self):
         """ Content diff from head to stage """
         self.common()
-        self._notify_pull_merge(self.fs_repo_root, self.active_branch)
+        self._notify_conflict(self.fs_repo_root, self.active_branch)
         changes = self._diff_changes(Path('@stage'), Path('@head'))
         self.print(self._format_changes(changes, files=False))
         return changes

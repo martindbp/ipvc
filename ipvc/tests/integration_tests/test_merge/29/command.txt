@@ -1,1 +1,1 @@
-ipvc --mfs-namespace /test stage commit -m "Add chocolate"
+ipvc  --mfs-namespace /test branch pull --resolve --message 'Merge: keep both'
