@@ -12,7 +12,7 @@ def assert_list_equals(l1, l2):
         assert item1 == item2
 
 
-def test_pull():
+def test_merge_replay():
     ipvc = get_environment()
     ipvc.repo.init()
     test_file_content = 'line1\nline2\nline3\nline4'
@@ -35,19 +35,19 @@ def test_pull():
     write_file(REPO / 'test_file.txt', 'line1\nline2\nblerg\nline4')
     write_file(REPO / 'test_file3.txt', 'prepended\nline1\nline2\nline3\nline4')
     with pytest.raises(RuntimeError):
-        ipvc.branch.pull('master')
+        ipvc.branch.merge('master')
 
     ipvc.stage.add()
     with pytest.raises(RuntimeError):
-        ipvc.branch.pull('master')
+        ipvc.branch.merge('master')
 
     ipvc.stage.commit('msg2other')
-    _, merged_files, conflict_files = ipvc.branch.pull('master', replay=True)
+    _, merged_files, conflict_files = ipvc.branch.replay('master')
     assert conflict_files == set(['test_file.txt'])
     assert merged_files == set(['test_file3.txt'])
-    ipvc.branch.pull(abort=True)
+    ipvc.branch.replay(abort=True)
 
-    pulled_files, merged_files, conflict_files = ipvc.branch.pull('master')
+    pulled_files, merged_files, conflict_files = ipvc.branch.merge('master')
     assert conflict_files == set(['test_file.txt'])
     assert pulled_files == set(['other_file.txt'])
     assert merged_files == set(['test_file3.txt'])
@@ -84,7 +84,7 @@ def test_pull():
     # and one file (test_file.txt) has a conflict and should not be staged
     assert len(head_stage) == 2 and len(stage_workspace) == 1
 
-    ipvc.branch.pull(abort=True)
+    ipvc.branch.merge(abort=True)
     head_stage, stage_workspace = ipvc.stage.status()
     assert len(head_stage) == 0 and len(stage_workspace) == 0
 
@@ -95,15 +95,15 @@ def test_pull():
     assert open(REPO / 'test_file3.txt', 'r').read() == 'prepended\nline1\nline2\nline3\nline4'
 
     # Pull again and fix the merge and commit this time
-    ipvc.branch.pull('master')
+    ipvc.branch.merge('master')
 
     with pytest.raises(RuntimeError):
         # Should raise because conflict markers are still there
-        ipvc.branch.pull(resolve=True, message='msg')
+        ipvc.branch.merge(resolve='msg')
 
     # "Fix"
     write_file(REPO / 'test_file.txt', '\n'.join(merged_lines))
-    ipvc.branch.pull(resolve=True, message='msg')
+    ipvc.branch.merge(resolve='msg')
 
     # Latest commit must have a merge parent
     assert ipvc.branch.history()[0][-1] is not None
@@ -113,7 +113,7 @@ def test_pull():
     ipvc.stage.add(REPO / 'ff_file.txt')
     ff_hash = ipvc.stage.commit('ff')
     ipvc.branch.checkout('master')
-    ipvc.branch.pull('other')
+    ipvc.branch.merge('other')
     history = ipvc.branch.history()
     assert history[0][0] == ff_hash
     # Doesn't have a merge parent

@@ -1,3 +1,0 @@
-Merge conflict in groceries.txt
-There are merge conflicts, please resolve and the run `ipvc branch pull --resolve`
-or abort by running `ipvc branch pull --abort

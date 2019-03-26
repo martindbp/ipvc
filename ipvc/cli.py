@@ -121,22 +121,29 @@ def main():
         'ls', description='List branches')
     branch_ls_parser.set_defaults(subcommand='ls')
 
-    branch_pull_parser = branch_subparsers.add_parser(
-        'pull', description='Pull changes from "their" branch. By default does tries to merge and create a merge commit')
-    branch_pull_parser.set_defaults(subcommand='pull')
-    branch_pull_parser.add_argument(
-        '-n', '--no-fast-forward', action='store_true',
+
+    branch_merge_parser = branch_subparsers.add_parser(
+        'merge', description='Merge changes from "their" branch into "our" branch')
+    branch_merge_parser.set_defaults(subcommand='merge')
+    branch_merge_parser.add_argument(
+        '-n', '--no-ff', action='store_true',
         help='Creates a merge commit even where fast-forward merges can be made')
-    branch_pull_parser.add_argument(
-        '-a', '--abort', action='store_true', help='Aborts pull, after merge has been attempted')
-    branch_pull_parser.add_argument(
-        '-s', '--resolve', action='store_true', help='Resolve a merge conflict, then continue (if replay)')
-    branch_pull_parser.add_argument(
-        '-r', '--replay', action='store_true', help='Takes their branch and re-applies our commits on top of it')
-    branch_pull_parser.add_argument(
-        '-m', '--message', help='Commit message used for resolving merge')
-    branch_pull_parser.add_argument(
+    branch_merge_parser.add_argument(
+        '-a', '--abort', action='store_true', help='Aborts merge after a conflict')
+    branch_merge_parser.add_argument(
+        '-r', '--resolve', default=None, const=True, nargs='?', help='Resolve a merge conflict, with optional commit message')
+    branch_merge_parser.add_argument(
         'their_branch', nargs='?', help='the name of their branch to pull changes from')
+
+    branch_replay_parser = branch_subparsers.add_parser(
+        'replay', description='Replay our changes on top of "their" commits (in our branch)')
+    branch_replay_parser.set_defaults(subcommand='replay')
+    branch_replay_parser.add_argument(
+        '-a', '--abort', action='store_true', help='Aborts replay after a conflict')
+    branch_replay_parser.add_argument(
+        '-r', '--resume', action='store_true', help='Resume replay after a conflict has been resolved')
+    branch_replay_parser.add_argument(
+        'their_branch', nargs='?', help='the name of their branch')
 
     # ------------- STAGE --------------
     stage_parser = subparsers.add_parser(

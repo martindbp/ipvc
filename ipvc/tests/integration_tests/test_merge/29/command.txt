@@ -1,1 +1,1 @@
-ipvc  --mfs-namespace /test branch pull --resolve --message 'Merge: keep both'
+ipvc  --mfs-namespace /test branch merge --resolve 'Merge: keep both'

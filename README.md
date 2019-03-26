@@ -121,7 +121,8 @@ Note: commands not yet implemented are "commented" out
 * `ipvc branch rewrite # analagous to git rebase -i
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
-* `ipvc branch pull [--replay] <refpath> # analagous to git merge and rebase in one`
+* `ipvc branch merge [--abort] [--resolve [<message>]] [--no-ff] <branch> # analagous to git merge`
+* `ipvc branch replay [--abort] [--resolve] <branch> # analagous to git rebase`
 * `//ipvc branch publish [--all] # publish branch to IPNS`
 * `//ipvc branch unpublish [--all]`
 * `ipvc stage # status`

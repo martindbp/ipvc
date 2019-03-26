@@ -331,8 +331,409 @@ class BranchAPI(CommonAPI):
 
         return merged_files, conflict_files, pulled_files
 
+    def _resolve_conflicts(self, conflict_files_path, our_branch, their_branch,
+                           merge_type):
+            # Make sure the conflicts are resolved, and stage the changes
+            conflict_files = self.ipfs.files_read(
+                conflict_files_path).decode('utf-8')
+            for filename in conflict_files.split('\n'):
+                full_path = self.fs_repo_root / filename
+                start_idx, middle_idx, end_idx = -1, -1, -1
+                with open(full_path, 'r') as f:
+                    for i, line in enumerate(f.readlines()):
+                        if line == f'>>>>>>> {our_branch} (ours)\n':
+                            start_idx = i
+                        elif line == f'======= {their_branch} (theirs)\n':
+                            middle_idx = i
+                        elif line == '<<<<<<<\n':
+                            end_idx = i
+
+                # Make sure markers are in the right order
+                has_markers = start_idx < middle_idx < end_idx
+                if has_markers:
+                    self.print_err(f'Conflicts in {filename} have not been resolved')
+                    self.print_err(f'Please resolved them, or abort by `ipvc branch {merge_type} --abort`')
+                    raise RuntimeError
+
+                # Stage the changes
+                self.add_fs_to_mfs(full_path, 'workspace')
+                self.add_ref_changes_to_ref('workspace', 'stage', filename)
+
+
+    def _ref_files_hash(self, h):
+        return self.ipfs.files_stat(f'/ipfs/{h}/bundle/files')['Hash']
+
     @atomic
-    def pull(self, their_branch=None, replay=False, no_fast_forward=False,
+    def merge(self, their_branch=None, no_ff=False, abort=False,
+              resolve=None):
+        """
+        Merges our branch with their branch and creates a new merge commit
+        with two parents (parent and merge_parent).
+
+        The general procedure is:
+        1. Get the commits hashes for our branch and `their_branch`
+        2. Find the lowest common ancestor of the two commits
+        3. Find the diff between LCA and both commits
+        4. If diffs don't conflict, apply, then ask for commit message via editor
+           or take the message coming from the --resolve argument
+        5. If there are conflicts, exit and let the user edit the conflicts, then
+           run the merge command again with the --resolve [<message>] argument.
+        6. If the user instead wants to cancel, then she can run with --abort
+        7. If one of the branches are the LCA, then by default we don't create a 
+           merge (since tree was not split) but just update the head pointer, unless
+           the --no-ff (no fast-forward) option is supplied
+        """
+        message = resolve if resolve is not True else None
+        resolve = resolve is not None
+
+        self.common()
+
+        branch = self.active_branch
+
+        # Get some paths for later
+        base_refs = ['head', 'stage', 'workspace']
+        mfs_paths = {ref: self.get_mfs_path(self.fs_repo_root, branch, branch_info=ref)
+                     for ref in base_refs}
+        merge_refs = ['merge_parent', 'their_branch', 'conflict_files']
+        mfs_merge_paths = {ref: self.get_mfs_path(
+                           self.fs_repo_root, branch, branch_info=ref)
+                           for ref in merge_refs}
+        for ref in base_refs:
+            mfs_merge_paths[ref] = self.get_mfs_path(
+                self.fs_repo_root, branch, branch_info=f'merge_{ref}')
+
+        if resolve or abort:
+            try:
+                # Check that merge_parent is there, otherwise it will raise
+                self.ipfs.files_stat(mfs_merge_paths['merge_parent'])
+            except:
+                self.print_err('There is no merge in progress')
+                raise RuntimeError
+
+        if abort:
+            # Reset all base refs
+            for ref in base_refs:
+                self.ipfs.files_rm(mfs_paths[ref], recursive=True)
+                self.ipfs.files_cp(mfs_merge_paths[ref], mfs_paths[ref])
+
+            # Restore the fs repo workspace
+            self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')
+
+            for ref in mfs_merge_paths.keys():
+                self.ipfs.files_rm(mfs_merge_paths[ref], recursive=True)
+            return
+
+        if resolve:
+            their_branch = self.ipfs.files_read(
+                mfs_merge_paths['their_branch']).decode('utf-8')
+            self._resolve_conflicts(
+                mfs_merge_paths['conflict_files'], branch, their_branch, 'merge')
+
+            if message is None:
+                while message is None:
+                    message = self._get_editor_commit_message('Merge')
+                    if len(message) == 0:
+                        answer = input('Commit message was empty, try again? (y/n): ')
+                        if answer.lower() == 'n':
+                            self.print('Aborting merge --resolve')
+                            raise RuntimeError
+
+            self.ipvc.stage.commit(message, merge_parent=mfs_merge_paths['merge_parent'])
+
+            # Clean up
+            for ref in mfs_merge_paths.keys():
+                self.ipfs.files_rm(mfs_merge_paths[ref], recursive=True)
+            return
+
+        their_hashes = {ref: self.get_branch_info_hash(their_branch, ref) for ref in base_refs}
+        our_hashes = {ref: self.get_branch_info_hash(branch, ref) for ref in base_refs}
+
+        # Find the Lowest Common Ancestor
+        lca_commit_hash, our_lca_path, their_lca_path = self._find_LCA(
+            our_hashes['head'], their_hashes['head'])
+
+        lca_files_hash = self._ref_files_hash(lca_commit_hash)
+        their_files_hash = self._ref_files_hash(their_hashes['head'])
+        our_file_hashes = {ref: self._ref_files_hash(our_hashes[ref]) for ref in base_refs}
+        # Check collisions with stage and workspace changes
+        # NOTE: Check staged changes first since workspace contains changes based
+        # on the staged changes
+        our_file_changes = {ref: self._get_file_changes(
+            our_file_hashes['head'], our_file_hashes[ref]) for ref in ['stage', 'workspace']}
+
+        their_file_changes = self._get_file_changes(lca_files_hash, their_files_hash)
+        if not resolve:
+            stage_conflict_set = our_file_changes['stage'].keys() & their_file_changes.keys()
+            if len(stage_conflict_set) > 0:
+                self.print_err('Merge conflicts with local staged changes in:')
+                self.print_err('\n'.join(list(stage_conflict_set)))
+                raise RuntimeError()
+            workspace_conflict_set = our_file_changes['workspace'].keys() & their_file_changes.keys()
+            if len(workspace_conflict_set) > 0:
+                self.print_err('Merge conflicts with local workspace changes in:')
+                self.print_err('\n'.join(list(workspace_conflict_set)))
+                raise RuntimeError()
+
+        our_lca_changes = self._get_file_changes(lca_files_hash, our_file_hashes['head'])
+        merged_files, conflict_files, pulled_files = self._merge(
+            our_lca_changes, branch, their_file_changes, their_files_hash, their_branch)
+
+        if lca_commit_hash == our_hashes['head'] and not no_ff:
+            # This is a fast-forward merge, just update the head
+            # The changes from their commit have already been added to workspace and stage
+            # so all that is left to do is to update the head
+            self.ipfs.files_rm(mfs_paths['head'], recursive=True)
+            self.ipfs.files_cp(f'/ipfs/{their_hashes["head"]}', mfs_paths['head'])
+            self.print('Performed a fast-forward merge')
+        else:
+            if len(conflict_files) > 0:
+                # Save backup of previous refs
+                for ref in base_refs:
+                    self.ipfs.files_cp(f'/ipfs/{our_hashes[ref]}', mfs_merge_paths[ref])
+
+                # Save their branch name, so we can resolve
+                self.ipfs.files_write(
+                    mfs_merge_paths['their_branch'],
+                    io.BytesIO(their_branch.encode('utf-8')),
+                    create=True, truncate=True)
+
+                # Save conflict files
+                self.ipfs.files_write(
+                    mfs_merge_paths['conflict_files'],
+                    io.BytesIO(bytes('\n'.join(list(conflict_files)), 'utf-8')),
+                    create=True, truncate=True)
+
+                # Save merge parent
+                self.ipfs.files_cp(f'/ipfs/{their_hashes["head"]}',
+                                   mfs_merge_paths['merge_parent'])
+
+                self.print((
+                    'Merge produced conflicts.\n'
+                    'Edit the conflicts and run `ipvc branch merge --resolve [--message <msg>]`\n'
+                    'Or run `ipvc branch merge --resolve` to bring up your editor of choice\n'
+                    'To abort, run `ipvc branch merge --abort`'))
+            else:
+                if message is None:
+                    input('Pull merge successful, please enter commit message [ENTER]')
+                    while message is None:
+                        message = self._get_editor_commit_message('Merge')
+                        if len(message) == 0:
+                            answer = input('Commit message was empty, try again? (y/n): ')
+                            if answer.lower() == 'n':
+                                self.print('Aborting merge')
+                                raise RuntimeError
+                else:
+                    self.print('Merge successful')
+
+                # NOTE: changes will have been staged by self._merge
+                new_commit_hash = self.ipvc.stage.commit(
+                    message, merge_parent=f'/ipfs/{their_hashes["head"]}')
+
+        return pulled_files, merged_files, conflict_files
+
+
+    @atomic
+    def replay(self, their_branch=None, abort=False, resume=False):
+        """
+        Replays commits from our branch on top of their head, and sets the result
+        as our branch. 
+
+        The reason we apply our commits on top of their head is because then
+        "they" can simply do a fast-forward merge with our branch, but if we do
+        it the other way around they have to erase their branch and checkout
+        ours completely. Plus, we are more familiar with our own commits, and
+        can better understand what the commit is supposed to do in case of a merge
+        conflict with their branch.
+
+        The procedure is:
+        1. Find LCA (Lowest Common Ancestor)
+        2. First find the diff for their whole branch, and then find the diff
+           for one commit at a time in our branch.
+        3. For each such commit, if it can be applied without conflict, then apply it,
+           otherwise we enter the merge conflict state and exit
+        4. After the user has resolved the conflict by editing the conflicting file(s)
+           then the user runs `ipvc branch replay --resume`, and we resume applying
+           the commits where we left off. We use the edited changes as the new
+           content for the commit that had the conflict
+        5. If the user wants to abort instead, they can use the --abort flag
+        """
+        self.common()
+
+        branch = self.active_branch
+
+        # Get some paths for later
+        base_refs = ['head', 'stage', 'workspace']
+        mfs_paths = {ref: self.get_mfs_path(self.fs_repo_root, branch, branch_info=ref)
+                     for ref in base_refs}
+        replay_refs = ['conflict_commit', 'their_branch', 'conflict_files']
+        mfs_replay_paths = {ref: self.get_mfs_path(
+                            self.fs_repo_root, branch, branch_info=ref)
+                            for ref in replay_refs}
+        for ref in base_refs:
+            mfs_replay_paths[ref] = self.get_mfs_path(
+                self.fs_repo_root, branch, branch_info=f'replay_{ref}')
+
+        if resume or abort:
+            try:
+                # Check that conflict_commit is there, otherwise it will raise
+                self.ipfs.files_stat(mfs_replay_paths['conflict_commit'])
+            except:
+                self.print_err('There is no replay in progress')
+                raise RuntimeError
+
+        if abort:
+            # Reset all base refs
+            for ref in base_refs:
+                self.ipfs.files_rm(mfs_paths[ref], recursive=True)
+                self.ipfs.files_cp(mfs_replay_paths[ref], mfs_paths[ref])
+
+            # Restore the fs repo workspace
+            self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')
+
+            for ref in mfs_replay_paths.keys():
+                self.ipfs.files_rm(mfs_replay_paths[ref], recursive=True)
+            return
+
+        conflict_commit = None
+        if resume:
+            # Here's a tricky part: if we're resuming a replay, then the
+            # current head is modified with their commits and our replayed
+            # commits so far. In order to resume the replay however, we need to
+            # recalculate changesets and other variables as if the head is
+            # still the original head. So set the head path to the merge backup
+            # head path
+            mfs_paths['head'] = mfs_replay_paths['head']
+
+            # Read 'their_branch', i.e. the branch that was pulled from
+            their_branch = self.ipfs.files_read(
+                mfs_replay_paths['their_branch']).decode('utf-8')
+
+            self._resolve_conflicts(
+                mfs_replay_paths['conflict_files'], branch, their_branch, 'replay')
+
+            # Get the hash of the conflicting commit
+            conflict_commit = self.ipfs.files_stat(
+                mfs_replay_paths['conflict_commit'])['Hash']
+
+            # Commit the changes with the metadata of the old commit
+            meta = self.get_commit_metadata(conflict_commit)
+            meta['is_replay'] = True
+            self.ipvc.stage.commit(commit_metadata=meta)
+
+        their_hashes = {ref: self.get_branch_info_hash(their_branch, ref) for ref in base_refs}
+        our_hashes = {ref: self.get_branch_info_hash(branch, ref) for ref in base_refs}
+
+        # Find the Lowest Common Ancestor
+        lca_commit_hash, our_lca_path, their_lca_path = self._find_LCA(
+            our_hashes['head'], their_hashes['head'])
+
+        lca_files_hash = self._ref_files_hash(lca_commit_hash)
+        their_files_hash = self._ref_files_hash(their_hashes['head'])
+        our_file_hashes = {ref: self._ref_files_hash(our_hashes[ref]) for ref in base_refs}
+        # Check collisions with stage and workspace changes
+        # NOTE: Check staged changes first since workspace contains changes based
+        # on the staged changes
+        our_file_changes = {ref: self._get_file_changes(
+            our_file_hashes['head'], our_file_hashes[ref]) for ref in ['stage', 'workspace']}
+
+        their_file_changes = self._get_file_changes(lca_files_hash, their_files_hash)
+        if not resume:
+            stage_conflict_set = our_file_changes['stage'].keys() & their_file_changes.keys()
+            if len(stage_conflict_set) > 0:
+                self.print_err('Pull conflicts with local staged changes in:')
+                self.print_err('\n'.join(list(stage_conflict_set)))
+                raise RuntimeError()
+            workspace_conflict_set = our_file_changes['workspace'].keys() & their_file_changes.keys()
+            if len(workspace_conflict_set) > 0:
+                self.print_err('Pull conflicts with local workspace changes in:')
+                self.print_err('\n'.join(list(workspace_conflict_set)))
+                raise RuntimeError()
+
+        # Get our commits since LCA, and changesets for each
+        our_lca_path = our_lca_path[::-1] # reverse so that lca comes first
+
+        if not resume: # will have already been done during replay command
+            # Copy their head to all our refs (head, stage, workspace)
+            # Backup our refs in case there's a merge conflict
+            for ref in base_refs:
+                self.ipfs.files_cp(f'/ipfs/{our_hashes[ref]}', mfs_replay_paths[ref])
+                self.ipfs.files_rm(mfs_paths[ref], recursive=True)
+                self.ipfs.files_cp(f'/ipfs/{their_hashes["head"]}', mfs_paths[ref])
+                if ref is not 'head':
+                    # Need to remove the parent link if the ref is stage or workspace
+                    self.ipfs.files_rm(f'{mfs_paths[ref]}/parent', recursive=True)
+
+            # Check out the workspace to the filesystem
+            self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')
+
+        curr_lca_to_head_changes = their_file_changes
+        curr_head_files_hash = their_files_hash
+
+        our_lca_files_hashes = [self._ref_files_hash(h) for h in our_lca_path]
+        our_changes = [self._get_file_changes(h1, h2) for h1, h2
+                       in zip(our_lca_files_hashes[:-1], our_lca_files_hashes[1:])]
+
+        # For each of our changeset, merge with the current head
+        # We skip the first commit in the path (being the LCA)
+        found_replay_conflict = True if conflict_commit is None else False
+        all_merged, all_pulled = set(), set()
+        for i, (h, fh, changes) in enumerate(zip(
+                our_lca_path[1:], our_lca_files_hashes[1:], our_changes)):
+            if h == conflict_commit:
+                found_replay_conflict = True
+                continue
+
+            if not found_replay_conflict:
+                continue
+
+            merged_files, conflict_files, pulled_files = self._merge(
+                curr_lca_to_head_changes, branch, changes, fh, their_branch)
+            all_merged = all_merged | merged_files
+            all_pulled = all_pulled | pulled_files
+            if len(conflict_files) > 0:
+                # Save their branch name, so we can resume in --resolve
+                self.ipfs.files_write(
+                    mfs_replay_paths['their_branch'],
+                    io.BytesIO(their_branch.encode('utf-8')),
+                    create=True, truncate=True)
+
+                # Save conflict files
+                self.ipfs.files_write(
+                    mfs_replay_paths['conflict_files'],
+                    io.BytesIO(bytes('\n'.join(list(conflict_files)), 'utf-8')),
+                    create=True, truncate=True)
+
+                # Write the current commit so we can resume from here when we resolve
+                self.ipfs.files_cp(f'/ipfs/{h}',
+                                   mfs_replay_paths['conflict_commit'])
+
+                self.print(('There are merge conflicts, please resolve and '
+                            'the run `ipvc branch replay --resume`\n'
+                            'or abort by running `ipvc branch replay --abort'))
+                return all_pulled, all_merged, conflict_files
+
+            # No conflicts, so re-commit the changes with the same metadata as before
+            # but with an additional 'is_replay' flag (could be uselful?)
+            meta = self.get_commit_metadata(h)
+            meta['is_replay'] = True
+            new_commit_hash = self.ipvc.stage.commit(commit_metadata=meta)
+            curr_head_files_hash = self._ref_files_hash(new_commit_hash)
+
+            # Update the changes between lca and head
+            curr_lca_to_head_changes = self._get_file_changes(
+                lca_files_hash, curr_head_files_hash)
+
+        # We are done with all replay commits, so remove the replay data
+        for ref in replay_refs:
+            try:
+                self.ipfs.files_rm(mfs_replay_paths[ref], recursive=True)
+            except:
+                pass
+
+        return all_pulled, all_merged, set()
+
+    @atomic
+    def pull(self, their_branch=None, replay=False, no_ff=False,
              abort=False, resolve=False, message=None):
         """ Pulls changes from `their_branch` since the last common parent
         By default, tries to merge the two branches and create a merge commit.

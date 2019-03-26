@@ -1,1 +1,0 @@
-ipvc  --mfs-namespace /test branch pull --resolve

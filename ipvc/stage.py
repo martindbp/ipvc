@@ -105,7 +105,7 @@ class StageAPI(CommonAPI):
         of generating new metadata
         """
         self.common()
-        programmatic_commit = commit_metadata is not None
+        programmatic_commit = (commit_metadata or merge_parent) is not None
         if (not programmatic_commit and
                 self._notify_conflict(self.fs_repo_root, self.active_branch)):
             raise RuntimeError

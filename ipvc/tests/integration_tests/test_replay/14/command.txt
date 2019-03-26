@@ -1,1 +1,1 @@
-ipvc  --mfs-namespace /test branch pull --replay master
+ipvc  --mfs-namespace /test branch replay master
