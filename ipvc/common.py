@@ -2,11 +2,13 @@ import os
 import io
 import sys
 import json
-from datetime import datetime
+import tempfile
 import hashlib
 import difflib
+from datetime import datetime
 from functools import wraps
 from pathlib import Path
+from subprocess import call
 
 import ipfsapi
 
@@ -574,7 +576,7 @@ class CommonAPI:
     def _resolve_merge_conflict(self):
         pass
 
-    def _get_editor_commit_message(self, initial=''):
+    def _get_editor_commit_message(self, changes, initial=''):
         EDITOR = os.environ.get('EDITOR', 'vim')
         initial_message = (
             f'{initial}\n\n# Write your commit message above, then save and exit the editor.\n'
@@ -582,6 +584,7 @@ class CommonAPI:
             '# To change the default editor, change the EDITOR environment variable.'
         )
         # Get the diff to stage from head
+        changes = self._diff_changes('@stage', '@head')
         diff_str = self._format_changes(changes, files=False)
         # Add comments to all lines
         diff_str = diff_str.replace('\n', '\n# ')
@@ -598,3 +601,7 @@ class CommonAPI:
                                  if not l.startswith('#') and len(l.strip()) > 0]
                 message = '\n'.join(message_lines)
         return message
+
+    def _split_commit_message(self, msg):
+        short_desc, *rest = msg.split('\n')
+        return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)

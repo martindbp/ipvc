@@ -163,11 +163,12 @@ class BranchAPI(CommonAPI):
         commits = []
         while True:
             h, ts, msg = commit_hash[:6], commit_metadata['timestamp'], commit_metadata['message']
+            short_desc, long_desc = self._split_commit_message(msg)
             auth = make_len(commit_metadata['author'] or '', 30)
             if show_hash:
-                self.print(f'* {commit_hash} {ts} {auth}   {msg}')
+                self.print(f'* {commit_hash} {ts} {auth}   {short_desc}')
             else:
-                self.print(f'* {ts} {auth}   {msg}')
+                self.print(f'* {ts} {auth}   {short_desc}')
 
             parent_hash, parent_metadata, merge_parent_hash, _ = self._get_commit_parents(commit_hash)
             commits.append((commit_hash, parent_hash, merge_parent_hash))
