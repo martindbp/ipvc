@@ -121,7 +121,6 @@ def main():
         'ls', description='List branches')
     branch_ls_parser.set_defaults(subcommand='ls')
 
-
     branch_merge_parser = branch_subparsers.add_parser(
         'merge', description='Merge changes from "their" branch into "our" branch')
     branch_merge_parser.set_defaults(subcommand='merge')

@@ -382,6 +382,8 @@ class BranchAPI(CommonAPI):
         7. If one of the branches are the LCA, then by default we don't create a 
            merge (since tree was not split) but just update the head pointer, unless
            the --no-ff (no fast-forward) option is supplied
+
+        TODO: implement --use [ours/theirs] for resolving conflicts
         """
         message = resolve if resolve is not True else None
         resolve = resolve is not None
@@ -556,6 +558,8 @@ class BranchAPI(CommonAPI):
            the commits where we left off. We use the edited changes as the new
            content for the commit that had the conflict
         5. If the user wants to abort instead, they can use the --abort flag
+
+        TODO: implement --use [ours/theirs] for resolving conflicts
         """
         self.common()
 
