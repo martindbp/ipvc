@@ -211,18 +211,18 @@ def test_history():
 
     ipvc.stage.commit('commit message')
     try:
-        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/bundle'))
+        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/data/bundle'))
     except:
         assert False
 
     try:
-        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/parent'))
+        ipvc.ipfs.files_stat(ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/data/parent'))
     except:
         assert False
 
     try:
         metadata = ipvc.repo.mfs_read_json(
-            ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/commit_metadata'))
+            ipvc.repo.get_mfs_path(REPO, 'master', branch_info='head/data/commit_metadata'))
     except:
         assert False
 

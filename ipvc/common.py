@@ -19,8 +19,8 @@ def expand_ref(ref: str):
             ref.startswith('@stage') or
             ref.startswith('@workspace')):
         ref = ref[1:] # get rid of the @
-        ref = ref.replace('~', '/parent')
-        ref = ref.replace('^', '/merge_parent')
+        ref = ref.replace('~', '/data/parent')
+        ref = ref.replace('^', '/data/merge_parent')
     elif ref.startswith('@'):
         ref = ref[1:]
 
@@ -144,15 +144,15 @@ class CommonAPI:
         """ Expands a reference to the files location
         Expected behavior:
             "@head~^/myfolder/myfile.txt" ->
-                "head/parent/merge_parent/bundle/files/myfolder/myfile.txt"
+                "head/parent/merge_parent/data/bundle/files/myfolder/myfile.txt"
             "@stage/myfolder/myfile.txt" ->
-                "stage/bundle/files/myfolder/myfile.txt"
+                "stage/data/bundle/files/myfolder/myfile.txt"
             "myfolder/myfile.txt" ->
-                "workspace/bundle/files/myfolder/myfile.txt"
+                "workspace/data/bundle/files/myfolder/myfile.txt"
             "@{commit_hash}/myfolder" ->
-                "/ipfs/{commit_hash}/bundle/files/myfolder"
+                "/ipfs/{commit_hash}/data/bundle/files/myfolder"
             "@{branch}/myfolder" ->
-                "{branch}/head/bundle/files/myfolder"
+                "{branch}/head/data/bundle/files/myfolder"
 
         Returns (branch, mfs_path, workspace_path)
         """
@@ -160,16 +160,16 @@ class CommonAPI:
         if ref is not None:
             base, ref = expand_ref(ref)
             if base in ['head', 'workspace', 'stage']:
-                return None, ref / Path('bundle/files') / path, path
+                return None, ref / Path('data/bundle/files') / path, path
             elif ref in self.branches:
                 return (ref, *self.refpath_to_mfs(Path(path))[1:])
             else:
                 # Treat it as a commit hash
-                return None, Path('/ipfs') / ref / 'bundle/files' / path, path
+                return None, Path('/ipfs') / ref / 'data/bundle/files' / path, path
 
         else:
             # Assume a path in workspace
-            return None, Path('workspace/bundle/files') / refpath, refpath
+            return None, Path('workspace/data/bundle/files') / refpath, refpath
 
         return None, None, None
 
@@ -293,7 +293,7 @@ class CommonAPI:
 
     def get_metadata_file(self, ref):
         return self.get_mfs_path(
-            self.fs_repo_root, self.active_branch, branch_info=f'{ref}/bundle/files_metadata')
+            self.fs_repo_root, self.active_branch, branch_info=f'{ref}/data/bundle/files_metadata')
 
     def read_files_metadata(self, ref):
         return self.mfs_read_json(self.get_metadata_file(ref))
@@ -326,7 +326,7 @@ class CommonAPI:
         """
 
         mfs_files_root = self.get_mfs_path(
-            self.fs_repo_root, self.active_branch, branch_info=f'{mfs_ref}/bundle/files')
+            self.fs_repo_root, self.active_branch, branch_info=f'{mfs_ref}/data/bundle/files')
 
         # Copy over the current ref root to a temporary
         mfs_new_files_root = Path(self.namespace) / 'ipvc' / 'tmp'

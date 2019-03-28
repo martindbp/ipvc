@@ -46,7 +46,7 @@ class BranchAPI(CommonAPI):
         else:
             # Create the branch directory along with an empty stage and workspace
             for ref in ['stage', 'workspace']:
-                mfs_ref = self.get_mfs_path(self.fs_cwd, name, branch_info=ref)
+                mfs_ref = self.get_mfs_path(self.fs_cwd, name, branch_info=f'{ref}/data/')
                 self.ipfs.files_mkdir(mfs_ref, parents=True)
             self.invalidate_cache(['branches'])
 
@@ -66,11 +66,11 @@ class BranchAPI(CommonAPI):
             self.ipfs.files_cp(mfs_commit_path, mfs_head_path)
 
             # Copy commit bundle to workspace and stage
-            mfs_commit_bundle_path = f'{mfs_commit_path}/bundle'
+            mfs_commit_bundle_path = f'{mfs_commit_path}/data/bundle'
             mfs_workspace_path = self.get_mfs_path(
-                self.fs_cwd, name, branch_info='workspace/bundle')
+                self.fs_cwd, name, branch_info='workspace/data/bundle')
             mfs_stage_path = self.get_mfs_path(
-                self.fs_cwd, name, branch_info='stage/bundle')
+                self.fs_cwd, name, branch_info='stage/data/bundle')
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_workspace_path)
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_stage_path)
 
@@ -126,14 +126,14 @@ class BranchAPI(CommonAPI):
     def _get_commit_parents(self, commit_hash):
         """ Returns hash and metadata of parent commit and merge parent (if present) """
         try:
-            parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/parent')['Hash']
+            parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/data/parent')['Hash']
             parent_metadata = self.get_commit_metadata(parent_hash)
         except ipfsapi.exceptions.StatusError:
             # Reached the root of the graph
             return None, None, None, None
 
         try:
-            merge_parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/merge_parent')['Hash']
+            merge_parent_hash = self.ipfs.files_stat(f'/ipfs/{commit_hash}/data/merge_parent')['Hash']
             merge_parent_metadata = self.get_commit_metadata(merge_parent_hash)
             return parent_hash, parent_metadata, merge_parent_hash, merge_parent_metadata
         except:
@@ -142,7 +142,7 @@ class BranchAPI(CommonAPI):
     def get_commit_metadata(self, commit_hash):
         # NOTE: the root commit doesn't have a commit_metadata file, so this
         # might fail
-        return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/commit_metadata').decode('utf-8'))
+        return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/data/commit_metadata').decode('utf-8'))
 
     @atomic
     def history(self, show_hash=False):
@@ -153,7 +153,7 @@ class BranchAPI(CommonAPI):
         """
         self.common()
 
-        # Traverse the commits backwards by via the {commit}/parent/ link
+        # Traverse the commits backwards by via the {commit}/data/parent/ link
         mfs_commit_path = self.get_mfs_path(
             self.fs_repo_root, self.active_branch, branch_info=Path('head'))
         commit_hash = self.ipfs.files_stat(
@@ -361,7 +361,7 @@ class BranchAPI(CommonAPI):
 
 
     def _ref_files_hash(self, h):
-        return self.ipfs.files_stat(f'/ipfs/{h}/bundle/files')['Hash']
+        return self.ipfs.files_stat(f'/ipfs/{h}/data/bundle/files')['Hash']
 
     @atomic
     def merge(self, their_branch=None, no_ff=False, abort=False,
@@ -665,7 +665,7 @@ class BranchAPI(CommonAPI):
                 self.ipfs.files_cp(f'/ipfs/{their_hashes["head"]}', mfs_paths[ref])
                 if ref is not 'head':
                     # Need to remove the parent link if the ref is stage or workspace
-                    self.ipfs.files_rm(f'{mfs_paths[ref]}/parent', recursive=True)
+                    self.ipfs.files_rm(f'{mfs_paths[ref]}/data/parent', recursive=True)
 
             # Check out the workspace to the filesystem
             self._load_ref_into_repo(self.fs_repo_root, branch, 'workspace')

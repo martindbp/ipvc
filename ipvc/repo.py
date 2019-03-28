@@ -44,7 +44,7 @@ class RepoAPI(CommonAPI):
         # folder) to diff against rather than having to handle it as a special case
         for ref in ['stage', 'workspace', 'head']:
             mfs_files = self.get_mfs_path(
-                path, 'master', branch_info=f'{ref}/bundle/files')
+                path, 'master', branch_info=f'{ref}/data/bundle/files')
             self.ipfs.files_mkdir(mfs_files, parents=True)
 
         # Store the active branch name in 'active_branch_name'

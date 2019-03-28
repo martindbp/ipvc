@@ -79,7 +79,7 @@ class StageAPI(CommonAPI):
         self._notify_conflict(self.fs_repo_root, self.active_branch)
 
         head_stage_changes, *_ = self.get_mfs_changes(
-            'head/bundle/files', 'stage/bundle/files')
+            'head/data/bundle/files', 'stage/data/bundle/files')
         if len(head_stage_changes) == 0:
             self.print('No staged changes')
         else:
@@ -88,7 +88,7 @@ class StageAPI(CommonAPI):
             self.print('-'*80)
 
         stage_workspace_changes, *_ = self.get_mfs_changes(
-            'stage/bundle/files', 'workspace/bundle/files')
+            'stage/data/bundle/files', 'workspace/data/bundle/files')
         if len(stage_workspace_changes) == 0:
             self.print('No unstaged changes')
         else:
@@ -154,16 +154,16 @@ class StageAPI(CommonAPI):
         self.ipfs.files_cp(mfs_stage, mfs_head)
 
         # Add parent pointer to previous head
-        self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/parent')
+        self.ipfs.files_cp(f'/ipfs/{head_hash}', f'{mfs_head}/data/parent')
 
         if merge_parent is not None:
             # Add merge_parent to merged head if this was a merge commit
-            self.ipfs.files_cp(merge_parent, f'{mfs_head}/merge_parent')
+            self.ipfs.files_cp(merge_parent, f'{mfs_head}/data/merge_parent')
 
         # Add commit metadata
         metadata_bytes = io.BytesIO(json.dumps(commit_metadata).encode('utf-8'))
         self.ipfs.files_write(
-            f'{mfs_head}/commit_metadata', metadata_bytes, create=True, truncate=True)
+            f'{mfs_head}/data/commit_metadata', metadata_bytes, create=True, truncate=True)
 
         return self.ipfs.files_stat(mfs_head)['Hash']
 
