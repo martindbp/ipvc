@@ -50,9 +50,9 @@ def setup_state(dir_path):
     # Copy everything from dir_path to cwd
     for f in glob.glob(str(dir_path / '*')):
         if os.path.isfile(f):
-            shutil.copy2(f, cwd / os.path.basename(f))
+            shutil.copy(f, cwd / os.path.basename(f))
         else:
-            shutil.copytree(f, cwd / os.path.basename(f))
+            shutil.copytree(f, cwd / os.path.basename(f), copy_function=shutil.copy)
 
 
 def assert_state(dir_path):
@@ -179,9 +179,12 @@ def test_integration(tests_dir, name, stop_command):
             last_command_time = 0
             for i in range(num_states):
                 print(f'Testing command {i}')
+                t = time()
                 setup_state(test_root / str(i) / 'pre')
                 stop = (name is None or test_dir == name) and str(i) == stop_command
-                t = time()
+                run_assert_command(test_root / str(i), stop)
+                assert_state(test_root / str(i) / 'post')
+
                 # Make sure there is always at least a second between commands
                 # since unix file timestamp resolution is a second and we
                 # need the files to have new timestamps
@@ -190,6 +193,4 @@ def test_integration(tests_dir, name, stop_command):
                     print(f'Sleeping {s:.2f}s')
                     sleep(s)
                 last_command_time = t
-                run_assert_command(test_root / str(i), stop)
-                assert_state(test_root / str(i) / 'post')
         break
