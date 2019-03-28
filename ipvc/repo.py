@@ -54,6 +54,16 @@ class RepoAPI(CommonAPI):
             active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
         self.invalidate_cache()
 
+        # We cache this per repo, because repo_stat() is profoundly slow
+        self.print('Getting ipfs repo info (this can be slow...)')
+        mfs_ipfs_repo_path = self.get_mfs_path(
+            path, repo_info='ipfs_repo_path')
+        ipfs_repo_path = self.ipfs.repo_stat()['RepoPath']
+        self.ipfs.files_write(
+            mfs_ipfs_repo_path, io.BytesIO(ipfs_repo_path.encode('utf-8')),
+            create=True, truncate=True)
+
+        self.print('Reading workspace files')
         self.update_mfs_repo()
 
         self.print(f'Successfully created repository')

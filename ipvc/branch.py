@@ -145,12 +145,11 @@ class BranchAPI(CommonAPI):
         return json.loads(self.ipfs.cat(f'/ipfs/{commit_hash}/data/commit_metadata').decode('utf-8'))
 
     @atomic
-    def history(self, show_hash=False):
-        """ Shows the commit history for the current branch. Currently only shows
-        the linear history on the first parents side
-        Returns list of commits in order from last to first, as a tuple
-        of commit hash, parent hash and merge parent hash
-        """
+    def history(self, show_hash=False, show_peer=False):
+        """ Shows the commit history for the current branch. Currently only
+        shows the linear history on the first parents side Returns list of
+        commits in order from last to first, as a tuple of commit hash, parent
+        hash and merge parent hash """
         self.common()
 
         # Traverse the commits backwards by via the {commit}/data/parent/ link
@@ -164,11 +163,13 @@ class BranchAPI(CommonAPI):
         while True:
             h, ts, msg = commit_hash[:6], commit_metadata['timestamp'], commit_metadata['message']
             short_desc, long_desc = self._split_commit_message(msg)
-            auth = make_len(commit_metadata['author'] or '', 30)
+            peer = make_len('', 30)
+            if show_peer:
+                peer = make_len('peer: Qm...' + commit_metadata['author']['peer_id'][-5:], 30)
             if show_hash:
-                self.print(f'* {commit_hash} {ts} {auth}   {short_desc}')
+                self.print(f'* {commit_hash} {ts} {peer}   {short_desc}')
             else:
-                self.print(f'* {ts} {auth}   {short_desc}')
+                self.print(f'* {ts} {peer}   {short_desc}')
 
             parent_hash, parent_metadata, merge_parent_hash, _ = self._get_commit_parents(commit_hash)
             commits.append((commit_hash, parent_hash, merge_parent_hash))

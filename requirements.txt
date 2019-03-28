@@ -1,1 +1,3 @@
 ipfsapi
+pycrypto
+protobuf
