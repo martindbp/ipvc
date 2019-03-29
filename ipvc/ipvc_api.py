@@ -31,6 +31,17 @@ class IPVC:
             except:
                 print("IPFS ip/port '{ipfs_ip}' is not on the right format, e.g. '127.0.0.1:5000'",
                       file=sys.stderr)
+                raise RuntimeError
+            if ip not in ['localhost', '127.0.0.1']:
+                # NOTE: since we cannot get a peer_id's public/private key
+                # through the go-ipfs HTTP API as of writing, we have to get
+                # the keys by first calling repo_stat() to get the location of
+                # the ipfs repo, and then read the keys from the filesystem,
+                # therefore, the node we're connecting to has to be local
+                print('Currently only localhost ipfs nodes are supported',
+                      file=sys.stderr)
+                raise RuntimeError
+
 
         try:
             self.ipfs = ipfsapi.connect(*ip_port_args)

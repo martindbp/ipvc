@@ -118,3 +118,8 @@ class RepoAPI(CommonAPI):
         self.invalidate_cache()
         self.print('Repository successfully removed')
         return True
+
+    @atomic
+    def param(self, author):
+        """ Sets a repo parameter value """
+        self._param(author, write_global=False)

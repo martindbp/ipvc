@@ -7,8 +7,4 @@ class ParamAPI(CommonAPI):
     @atomic
     def param(self, author):
         """ Sets a global parameter value """
-        params = self.read_global_params()
-        if author is not None:
-            params['author'] = author
-
-        self.write_global_params(params)
+        self._param(author, write_global=True)

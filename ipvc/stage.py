@@ -138,19 +138,29 @@ class StageAPI(CommonAPI):
         # commit entry
         mfs_ipfs_repo_path = self.get_mfs_path(self.fs_cwd, repo_info='ipfs_repo_path')
         ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
-        private_key, public_key = None, None
-        rsa_priv_key, rsa_pub_key = None, None
-        crypter, decrypter = None, None
-        with open(Path(ipfs_repo_path) / 'config') as f:
-            config = json.loads(f.read())
-            identity = config['Identity']
-            peer_id, private_key = identity ['PeerID'], identity['PrivKey']
-            decoded_private_key = base64.b64decode(private_key)
-            private_key = deserialize_pk_protobuf(
-                decoded_private_key, 'crypto.pb.PrivateKey').Data
-            rsa_priv_key = RSA.importKey(private_key)
-            rsa_pub_key = rsa_priv_key.publickey()
-            public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
+        author_key = self.read_params().get('author', 'self')
+        priv_key_protobuf = None
+        peer_id = None
+        author_key = 'martin'
+        if author_key == 'self':
+            with open(Path(ipfs_repo_path) / 'config') as f:
+                config = json.loads(f.read())
+                identity = config['Identity']
+                peer_id = identity ['PeerID']
+                priv_key_protobuf = base64.b64decode(identity['PrivKey'])
+        else:
+            with open(Path(ipfs_repo_path) / 'keystore' / author_key, 'rb') as f:
+                priv_key_protobuf = f.read()
+            for key in self.ipfs.key_list()['Keys']:
+                if key['Name'] == author_key:
+                    peer_id = key['Id']
+                    break
+
+        private_key = deserialize_pk_protobuf(
+            priv_key_protobuf, 'crypto.pb.PrivateKey').Data
+        rsa_priv_key = RSA.importKey(private_key)
+        rsa_pub_key = rsa_priv_key.publickey()
+        public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
 
         # Create commit_metadata if not provided
         if commit_metadata is None:

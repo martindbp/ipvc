@@ -308,6 +308,20 @@ class CommonAPI:
         mfs_params = self.get_mfs_path(ipvc_info='params.json')
         return self.mfs_write_json(params, mfs_params)
 
+    def read_repo_params(self):
+        mfs_params = self.get_mfs_path(self.fs_repo_root, repo_info='params.json')
+        return self.mfs_read_json(mfs_params)
+
+    def write_repo_params(self, params):
+        mfs_params = self.get_mfs_path(self.fs_repo_root, repo_info='params.json')
+        return self.mfs_write_json(params, mfs_params)
+
+    def read_params(self):
+        """ Reads repo and global params, overriding global with repo if conflicting """
+        params = self.read_global_params()
+        params.update(self.read_repo_params())
+        return params
+
     def add_fs_to_mfs(self, fs_add_path, mfs_ref):
         """ Adds the changes in a workspace under fs_add_path to a ref and
         returns the changes, and number of files that needed hashing
@@ -605,3 +619,19 @@ class CommonAPI:
     def _split_commit_message(self, msg):
         short_desc, *rest = msg.split('\n')
         return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)
+
+    def _param(self, author, write_global):
+        """ Sets a global or repo parameter value """
+        params = self.read_global_params() if write_global else self.read_repo_params()
+        if author is not None:
+            keys = self.ipfs.key_list()
+            names = set(key['Name'] for key in keys['Keys'])
+            if author not in names:
+                self.print_err('No such key. Available keys:')
+                self.print_err('\n'.join(names))
+            params['author'] = author
+
+        if write_global:
+            self.write_global_params(params)
+        else:
+            self.write_repo_params(params)

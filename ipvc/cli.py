@@ -26,7 +26,7 @@ def main():
     parser.add_argument(
         '-n', '--mfs-namespace', help='IPFS/MFS namespace for IPVC', default=None)
     parser.add_argument(
-        '-i', '--ipfs-ip', help='IPFS ip and port string, e.g. "127.0.0.1:5001"',
+        '-i', '--ipfs-ip', help='IPFS node ip and port string, e.g. "127.0.0.1:5001"',
         default=None)
     parser.add_argument(
         '-d', '--delete-mfs', action='store_true', help='Delete IPVC in IPFS/MFS before running command')
@@ -64,10 +64,19 @@ def main():
     repo_rm_parser.set_defaults(subcommand='rm')
     repo_rm_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
 
+    repo_param_parser = repo_subparsers.add_parser(
+        'param', description='Set local parameters for this repository, overriding global ones')
+    repo_param_parser.set_defaults(subcommand='param')
+    repo_param_parser.add_argument('--path', help='Path to repo', default=cwd)
+    repo_param_parser.add_argument('--author', help='Name of the IPFS key to use',
+                                   default=None)
+
     # ------------- PARAM --------------
-    param_parser = subparsers.add_parser('param')
-    param_parser.set_defaults(command='param', subcommand='set_param')
-    param_parser.add_argument('--author')
+    param_parser = subparsers.add_parser('param', description='Set global parameters for IPVC')
+    param_parser .set_defaults(command='param', subcommand='param')
+    param_parser.add_argument(
+        '--author', help='Name of the IPFS key to use as a default for all repositories',
+        default=None)
 
     # ------------- BRANCH --------------
     branch_parser = subparsers.add_parser(
