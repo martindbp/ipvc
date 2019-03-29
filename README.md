@@ -111,6 +111,10 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo rm [<path>]`
 * `ipvc repo ls # list all repos in ipvc`
 * `ipvc repo mv [<from>] <to> - move a repository`
+* `//ipvc repo publish [--name] <path> # publish the repo to IPNS with a name
+* `//ipvc repo unpublish <path> # unpublish the repo from IPNS
+* `//ipvc repo clone [--name] <IPFS/IPNS> # clone a repo as name
+* `//ipvc repo remote [<IPNS>] # show/set remote destination of repo
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
 * `//ipvc branch rm <branch name>`
@@ -118,13 +122,15 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch reset [<path>] # reset workspace at path`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
-* `ipvc branch rewrite # analagous to git rebase -i
+* `//ipvc branch rewrite # analagous to git rebase -i
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
 * `ipvc branch merge [--abort] [--resolve [<message>]] [--no-ff] <branch> # analagous to git merge`
 * `ipvc branch replay [--abort] [--resolve] <branch> # analagous to git rebase`
-* `//ipvc branch publish [--all] # publish branch to IPNS`
-* `//ipvc branch unpublish [--all]`
+* `//ipvc branch fetch` # download the latest remote of this branch
+* `//ipvc branch pull` # fetch and merge
+* `//ipvc branch publish # publish branch to IPNS`
+* `//ipvc branch unpublish`
 * `ipvc stage # status`
 * `ipvc stage add <path>`
 * `ipvc stage remove <path>`
