@@ -105,28 +105,30 @@ NOTE: usage is incomplete as many important commands are not yet implemented
 ## Commands and Examples
 Note: commands not yet implemented are "commented" out
 
+* `ipvc param [--author <key_name>] # set global param`
 * `ipvc repo init`
 * `ipvc repo mv <path1> [<path2>]`
 * `ipvc repo # alias for ls`
 * `ipvc repo rm [<path>]`
 * `ipvc repo ls # list all repos in ipvc`
 * `ipvc repo mv [<from>] <to> - move a repository`
+* `ipvc repo param [--author <key_name>] # set param for repo`
 * `//ipvc repo publish [--name] <path> # publish the repo to IPNS with a name`
 * `//ipvc repo unpublish <path> # unpublish the repo from IPNS`
 * `//ipvc repo clone [--name] <IPFS/IPNS> # clone a repo as name`
 * `//ipvc repo remote [<IPNS>] # show/set remote destination of repo`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
-* `//ipvc branch rm <branch name>`
-* `//ipvc branch mv [<from>] <to>`
-* `//ipvc branch reset [<path>] # reset workspace at path`
 * `ipvc branch checkout <name>`
 * `ipvc branch history # log`
-* `//ipvc branch rewrite # analagous to git rebase -i`
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
 * `ipvc branch merge [--abort] [--resolve [<message>]] [--no-ff] <branch> # analagous to git merge`
 * `ipvc branch replay [--abort] [--resolve] <branch> # analagous to git rebase`
+* `//ipvc branch rm <branch name>`
+* `//ipvc branch mv [<from>] <to>`
+* `//ipvc branch reset [<path>] # reset workspace at path`
+* `//ipvc branch rewrite # analagous to git rebase -i`
 * `//ipvc branch fetch # download the latest remote of this branch`
 * `//ipvc branch pull # fetch and merge`
 * `//ipvc branch publish # publish branch to IPNS`
@@ -135,10 +137,9 @@ Note: commands not yet implemented are "commented" out
 * `ipvc stage add <path>`
 * `ipvc stage remove <path>`
 * `ipvc stage commit <msg>`
-* `ipvc stage diff # alias for ipvc diff stage workspace`
+* `ipvc stage diff # alias for ipvc diff stage workspace, equivalent to git diff --cached`
 * `//ipvc stage uncommit`
-* `ipvc diff files <to-refpath> <from-refpath>`
-* `ipvc diff content <to-refpath> <from-refpath>`
+* `ipvc diff [--files] [<to-refpath>] [<from-refpath>] # defaults to @workspace -> @stage, equivalent to git diff`
 
 ## How
 * Uses Python 3.6, with go-ipfs as the IPFS server
@@ -167,6 +168,7 @@ In no particular order of importance
 * Issues, pull requests, discussions etc via pubsub and CRDTs
 * Equivalent of ignore file
 * Generate a browsable static website for a repo like a github project
+* A --keep-workpace flag for branch checkout, for bringing workspace changes to new branch
 
 ### Other
 * Optimize! Currently things are way too slow

@@ -739,7 +739,7 @@ class BranchAPI(CommonAPI):
 
     @atomic
     def show(self, refpath, browser=False):
-        """ Opens a ref in the ipfs file browser """
+        """ Opens a ref in the ipfs file browser or cat's it """
         commit_files_hash = self.get_refpath_files_hash(Path(refpath))
         if browser:
             # TODO: read IPFS node url from settings
