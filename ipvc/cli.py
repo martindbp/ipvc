@@ -40,6 +40,61 @@ def main():
     version_parser = subparsers.add_parser('version', description='Display version')
     version_parser.set_defaults(command='version', subcommand='')
 
+    # ------------- ID --------------
+    id_parser = subparsers.add_parser('id', description='Identity functions')
+    id_parser.set_defaults(command='id', subcommand='ls')
+    id_subparsers = id_parser.add_subparsers()
+
+    id_ls_parser = id_subparsers.add_parser(
+        'ls', description='List all local and remote ids')
+    id_ls_parser.set_defaults(subcommand='ls')
+
+    id_create_parser = id_subparsers.add_parser(
+        'create', description='Create new id')
+    id_create_parser.set_defaults(subcommand='create')
+    id_create_parser.add_argument(
+        'key', help='Key name')
+
+    id_get_parser = id_subparsers.add_parser(
+        'get', description='Get identity used for repo or key')
+    id_get_parser.set_defaults(subcommand='get')
+    id_get_parser.add_argument(
+        '--path', help='Path to repo', default=cwd)
+    id_get_parser.add_argument(
+        '--key', help='Key name')
+
+    id_set_parser = id_subparsers.add_parser(
+        'set', description='Set identity parameters for key/repo')
+    id_set_parser.set_defaults(subcommand='set')
+    id_set_parser.add_argument(
+        '--path', help='Path to repo', default=cwd)
+    id_set_parser.add_argument(
+        '--name', help='Name')
+    id_set_parser.add_argument(
+        '--email', help='Email')
+    id_set_parser.add_argument(
+        '--desc', help='Description')
+    id_set_parser.add_argument(
+        '--img', help='Profile image (IPFS hash)')
+    id_set_parser.add_argument(
+        '--link', help='Link to a website or IPFS hash')
+    id_set_parser.add_argument(
+        '--key', help='Key name')
+
+    id_publish_parser = id_subparsers.add_parser(
+        'publish', description='Publish id parameters to IPNS for key/repo')
+    id_publish_parser.set_defaults(subcommand='publish')
+    id_publish_parser.add_argument(
+        '--path', help='Path to repo', default=cwd)
+    id_publish_parser.add_argument(
+        '--key', help='Key name')
+
+    id_resolve_parser = id_subparsers.add_parser(
+        'resolve', description='Resolve remote ids from IPNS`')
+    id_resolve_parser.set_defaults(subcommand='resolve')
+    id_resolve_parser.add_argument('--name', help='Remote name')
+    id_resolve_parser.add_argument('--peer_id', help='Remote peer id')
+
     # ------------- REPO --------------
     repo_parser = subparsers.add_parser('repo', description='Repository functions')
     repo_parser.set_defaults(command='repo', subcommand='ls')
@@ -64,19 +119,10 @@ def main():
     repo_rm_parser.set_defaults(subcommand='rm')
     repo_rm_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
 
-    repo_param_parser = repo_subparsers.add_parser(
-        'param', description='Set local parameters for this repository, overriding global ones')
-    repo_param_parser.set_defaults(subcommand='param')
-    repo_param_parser.add_argument('--path', help='Path to repo', default=cwd)
-    repo_param_parser.add_argument('--author', help='Name of the IPFS key to use',
-                                   default=None)
-
-    # ------------- PARAM --------------
-    param_parser = subparsers.add_parser('param', description='Set global parameters for IPVC')
-    param_parser .set_defaults(command='param', subcommand='param')
-    param_parser.add_argument(
-        '--author', help='Name of the IPFS key to use as a default for all repositories',
-        default=None)
+    repo_id_parser = repo_subparsers.add_parser('id', description='Show or set ID for repo')
+    repo_id_parser.set_defaults(subcommand='id')
+    repo_id_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
+    repo_id_parser.add_argument('key', nargs='?', help='Key name', default=None)
 
     # ------------- BRANCH --------------
     branch_parser = subparsers.add_parser(

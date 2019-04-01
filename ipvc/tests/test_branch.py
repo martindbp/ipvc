@@ -204,8 +204,6 @@ def test_history():
     ipvc = get_environment()
     ipvc.repo.init()
 
-    ipvc.param.param(author='Bob')
-
     write_file(REPO / 'test_file.txt', 'hello world')
     ipvc.stage.add()
 

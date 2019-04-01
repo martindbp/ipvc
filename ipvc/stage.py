@@ -5,27 +5,8 @@ import sys
 from pathlib import Path
 from datetime import datetime
 
-from Crypto.PublicKey import RSA
-from Crypto import Cipher
-
 import ipfsapi
 from ipvc.common import CommonAPI, atomic
-
-import crypto_pb2
-import base64
-
-def deserialize_pk_protobuf(byte_message, proto_type):
-    """
-    This is a function to decode the PrivKey in the IPFS config, since it is
-    in a protobuf format
-    (see https://stackoverflow.com/questions/54270908/how-to-decode-ipfs-private-and-public-key-in-der-pem-format/54271911#54271911)
-    """
-    module_, class_ = proto_type.rsplit('.', 1)
-    class_ = getattr(crypto_pb2, class_) # crypto_pb2 is a name of module we recently created and imported
-    rv = class_()
-    rv.ParseFromString(byte_message) # use .SerializeToString() to reverse operation
-    return rv
-
 
 class StageAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
@@ -128,39 +109,13 @@ class StageAPI(CommonAPI):
                 self._notify_conflict(self.fs_repo_root, self.active_branch)):
             raise RuntimeError
 
-
         changes = self._diff_changes(Path('@stage'), Path('@head'))
         if not programmatic_commit and len(changes) == 0:
             self.print_err('Nothing to commit')
             raise RuntimeError
 
-        # Retrieve public/private encryption keys for commit signing and author
-        # commit entry
-        mfs_ipfs_repo_path = self.get_mfs_path(self.fs_cwd, repo_info='ipfs_repo_path')
-        ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
-        author_key = self.read_params().get('author', 'self')
-        priv_key_protobuf = None
-        peer_id = None
-        author_key = 'martin'
-        if author_key == 'self':
-            with open(Path(ipfs_repo_path) / 'config') as f:
-                config = json.loads(f.read())
-                identity = config['Identity']
-                peer_id = identity ['PeerID']
-                priv_key_protobuf = base64.b64decode(identity['PrivKey'])
-        else:
-            with open(Path(ipfs_repo_path) / 'keystore' / author_key, 'rb') as f:
-                priv_key_protobuf = f.read()
-            for key in self.ipfs.key_list()['Keys']:
-                if key['Name'] == author_key:
-                    peer_id = key['Id']
-                    break
-
-        private_key = deserialize_pk_protobuf(
-            priv_key_protobuf, 'crypto.pb.PrivateKey').Data
-        rsa_priv_key = RSA.importKey(private_key)
-        rsa_pub_key = rsa_priv_key.publickey()
-        public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
+        # Retrieve cryptographic data for commit signing and author commit entry
+        id_info = self.id_info(self.repo_id)
 
         # Create commit_metadata if not provided
         if commit_metadata is None:
@@ -171,12 +126,11 @@ class StageAPI(CommonAPI):
                 self.print_err('Aborting: Commit message is empty')
                 raise RuntimeError
 
-            params = self.read_global_params()
             commit_metadata = {
                 'message': message,
                 'author': {
-                    'peer_id': peer_id,
-                    'public_key': public_key_pem
+                    'peer_id': id_info['peer_id'],
+                    'public_key': id_info['pub_key_pem']
                 },
                 'timestamp': datetime.utcnow().isoformat(),
             }
@@ -212,10 +166,10 @@ class StageAPI(CommonAPI):
         # Sign the commit bundle and data hash
         bundle_hash = self.ipfs.files_stat(f'{mfs_head}/data/bundle')['Hash'].encode('utf-8')
         data_hash = self.ipfs.files_stat(f'{mfs_head}/data/')['Hash'].encode('utf-8')
-        data_signature = rsa_priv_key.sign(data_hash, K='wtf?')[0]
-        assert rsa_pub_key.verify(data_hash, (data_signature,))
-        bundle_signature = rsa_priv_key.sign(bundle_hash, K='wtf?')[0]
-        assert rsa_pub_key.verify(bundle_hash, (bundle_signature,))
+        data_signature = id_info['rsa_priv_key'].sign(data_hash, K='wtf?')[0]
+        assert id_info['rsa_pub_key'].verify(data_hash, (data_signature,))
+        bundle_signature = id_info['rsa_priv_key'].sign(bundle_hash, K='wtf?')[0]
+        assert id_info['rsa_pub_key'].verify(bundle_hash, (bundle_signature,))
 
         # Write signed hashes to commit 
         self.ipfs.files_write(

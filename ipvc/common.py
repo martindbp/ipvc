@@ -12,6 +12,24 @@ from subprocess import call
 
 import ipfsapi
 
+from Crypto.PublicKey import RSA
+from Crypto import Cipher
+
+import crypto_pb2
+import base64
+
+def deserialize_pk_protobuf(byte_message, proto_type):
+    """
+    This is a function to decode the PrivKey in the IPFS config, since it is
+    in a protobuf format
+    (see https://stackoverflow.com/questions/54270908/how-to-decode-ipfs-private-and-public-key-in-der-pem-format/54271911#54271911)
+    """
+    module_, class_ = proto_type.rsplit('.', 1)
+    class_ = getattr(crypto_pb2, class_) # crypto_pb2 is a name of module we recently created and imported
+    rv = class_()
+    rv.ParseFromString(byte_message) # use .SerializeToString() to reverse operation
+    return rv
+
 
 def expand_ref(ref: str):
     # TODO: support numbers, i.e. head~10
@@ -208,13 +226,16 @@ class CommonAPI:
         branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
         return branch
 
+    def repo_branches(self, fs_repo_root):
+        mfs_branches_path = self.get_mfs_path(
+            fs_repo_root, repo_info='branches')
+        ls_ret = self.ipfs.files_ls(mfs_branches_path)
+        return [entry['Name'] for entry in ls_ret['Entries']]
+
     @property
     @cached_property
     def branches(self):
-        mfs_branches_path = self.get_mfs_path(
-            self.fs_repo_root, repo_info='branches')
-        ls_ret = self.ipfs.files_ls(mfs_branches_path)
-        return [entry['Name'] for entry in ls_ret['Entries']]
+        return self.repo_branches(self.fs_repo_root)
 
     def list_repo_paths(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
@@ -300,27 +321,6 @@ class CommonAPI:
 
     def write_files_metadata(self, metadata, ref):
         self.mfs_write_json(metadata, self.get_metadata_file(ref))
-
-    def read_global_params(self):
-        return self.mfs_read_json(self.get_mfs_path(ipvc_info='params.json'))
-
-    def write_global_params(self, params):
-        mfs_params = self.get_mfs_path(ipvc_info='params.json')
-        return self.mfs_write_json(params, mfs_params)
-
-    def read_repo_params(self):
-        mfs_params = self.get_mfs_path(self.fs_repo_root, repo_info='params.json')
-        return self.mfs_read_json(mfs_params)
-
-    def write_repo_params(self, params):
-        mfs_params = self.get_mfs_path(self.fs_repo_root, repo_info='params.json')
-        return self.mfs_write_json(params, mfs_params)
-
-    def read_params(self):
-        """ Reads repo and global params, overriding global with repo if conflicting """
-        params = self.read_global_params()
-        params.update(self.read_repo_params())
-        return params
 
     def add_fs_to_mfs(self, fs_add_path, mfs_ref):
         """ Adds the changes in a workspace under fs_add_path to a ref and
@@ -620,18 +620,81 @@ class CommonAPI:
         short_desc, *rest = msg.split('\n')
         return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)
 
-    def _param(self, author, write_global):
-        """ Sets a global or repo parameter value """
-        params = self.read_global_params() if write_global else self.read_repo_params()
-        if author is not None:
-            keys = self.ipfs.key_list()
-            names = set(key['Name'] for key in keys['Keys'])
-            if author not in names:
-                self.print_err('No such key. Available keys:')
-                self.print_err('\n'.join(names))
-            params['author'] = author
+    def repo_path_id(self, repo_path):
+        id_path = self.get_mfs_path(repo_path, repo_info='id')
+        try:
+            return self.ipfs.files_read(id_path).decode('utf-8')
+        except ipfsapi.exceptions.StatusError:
+            # Write 'self' as default (the key that always comes with an go-ipfs node
+            self.ipfs.files_write(id_path, io.BytesIO(b'self'),
+                                  create=True, truncate=True)
+            return 'self'
 
-        if write_global:
-            self.write_global_params(params)
+    @property
+    @cached_property
+    def repo_id(self):
+        return self.repo_path_id(self.fs_repo_root)
+
+    @property
+    @cached_property
+    def ids(self):
+        ids_path = self.get_mfs_path(ipvc_info='ids')
+        try:
+            return json.loads(self.ipfs.files_read(ids_path).decode('utf-8'))
+        except ipfsapi.exceptions.StatusError:
+            # Write empty json
+            ids = {'local': {}, 'remote': {}}
+            self.ipfs.files_write(
+                ids_path, io.BytesIO(json.dumps(ids).encode('utf-8')),
+                create=True, truncate=True)
+            return ids
+
+    def all_ipfs_ids(self):
+        mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
+        ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
+        keys = ['self']
+        for path in (Path(ipfs_repo_path) / 'keystore').glob('*'):
+            keys.append(os.path.basename(path))
+        return keys
+
+    def id_info(self, key_name):
+        mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
+        ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
+
+        priv_key_protobuf = None
+        peer_id = None
+        if key_name == 'self':
+            with open(Path(ipfs_repo_path) / 'config') as f:
+                config = json.loads(f.read())
+                identity = config['Identity']
+                peer_id = identity ['PeerID']
+                priv_key_protobuf = base64.b64decode(identity['PrivKey'])
         else:
-            self.write_repo_params(params)
+            with open(Path(ipfs_repo_path) / 'keystore' / key_name, 'rb') as f:
+                priv_key_protobuf = f.read()
+            for key in self.ipfs.key_list()['Keys']:
+                if key['Name'] == key_name:
+                    peer_id = key['Id']
+                    break
+
+        private_key_pem = deserialize_pk_protobuf(
+            priv_key_protobuf, 'crypto.pb.PrivateKey').Data
+        rsa_priv_key = RSA.importKey(private_key_pem)
+        rsa_pub_key = rsa_priv_key.publickey()
+        public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
+
+        return {
+            'peer_id': peer_id,
+            'rsa_pub_key': rsa_pub_key,
+            'rsa_priv_key': rsa_priv_key,
+            'pub_key_pem': public_key_pem,
+            'priv_key_pem': private_key_pem
+        }
+
+    def print_id(self, peer_id, data, lead=''):
+        self.print(f'{lead}PeerID: {peer_id}')
+        self.print(f'{lead}Name: {data.get("name", "Not set")}')
+        self.print(f'{lead}Email: {data.get("email", "Not set")}')
+        self.print(f'{lead}Description: {data.get("desc", "Not set")}')
+        self.print(f'{lead}Img: {data.get("img", "Not set")}')
+        self.print(f'{lead}Link: {data.get("link", "Not set")}')

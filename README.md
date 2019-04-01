@@ -105,14 +105,12 @@ NOTE: usage is incomplete as many important commands are not yet implemented
 ## Commands and Examples
 Note: commands not yet implemented are "commented" out
 
-* `ipvc param [--author <key_name>] # set global param`
 * `ipvc repo init`
 * `ipvc repo mv <path1> [<path2>]`
 * `ipvc repo # alias for ls`
 * `ipvc repo rm [<path>]`
 * `ipvc repo ls # list all repos in ipvc`
 * `ipvc repo mv [<from>] <to> - move a repository`
-* `ipvc repo param [--author <key_name>] # set param for repo`
 * `//ipvc repo publish [--name] <path> # publish the repo to IPNS with a name`
 * `//ipvc repo unpublish <path> # unpublish the repo from IPNS`
 * `//ipvc repo clone [--name] <IPFS/IPNS> # clone a repo as name`
@@ -140,6 +138,11 @@ Note: commands not yet implemented are "commented" out
 * `ipvc stage diff # alias for ipvc diff stage workspace, equivalent to git diff --cached`
 * `//ipvc stage uncommit`
 * `ipvc diff [--files] [<to-refpath>] [<from-refpath>] # defaults to @workspace -> @stage, equivalent to git diff`
+* `//ipvc id # List all local and remote ids`
+* `//ipvc id get [--repo_path <path>] [--key <key_name>] # Show identity used for repo or key`
+* `//ipvc id set [--repo_path <path>] [--name <name>] [--email <email>] [--desc <desc>] [--img <img_hash>] <key_name> # Create identity for ipfs key / repo`
+* `//ipvc id publish [--repo_path <path>] [--key <key_name>] # Publish id data on IPNS
+* `//ipvc id resolve [--peer_id <peer_id>] [--name <name>] # Resolve remote ids from IPNS`
 
 ## How
 * Uses Python 3.6, with go-ipfs as the IPFS server

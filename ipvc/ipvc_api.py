@@ -8,7 +8,7 @@ from ipvc.repo import RepoAPI
 from ipvc.stage import StageAPI
 from ipvc.branch import BranchAPI
 from ipvc.diff import DiffAPI
-from ipvc.param import ParamAPI
+from ipvc.id import IdAPI
 
 import ipfsapi
 
@@ -102,7 +102,7 @@ class IPVC:
         self.stage = StageAPI(*args)
         self.branch = BranchAPI(*args)
         self.diff = DiffAPI(*args)
-        self.param = ParamAPI(*args)
+        self.id = IdAPI(*args)
         self._property_cache = {}
 
     def set_cwd(self, cwd):
@@ -111,7 +111,7 @@ class IPVC:
         self.stage.set_cwd(cwd)
         self.branch.set_cwd(cwd)
         self.diff.set_cwd(cwd)
-        self.param.set_cwd(cwd)
+        self.id.set_cwd(cwd)
 
     def print_ipfs_profile_info(self):
         print('Call counts:')

@@ -54,6 +54,10 @@ class RepoAPI(CommonAPI):
             active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
         self.invalidate_cache()
 
+        # Write default ipfs id (self)
+        self.ipfs.files_write(self.get_mfs_path(path, repo_info='id'),
+                              io.BytesIO(b'self'), create=True, truncate=True)
+
         # We cache this per repo, because repo_stat() is profoundly slow
         self.print('Getting ipfs repo info (this can be slow...)')
         mfs_ipfs_repo_path = self.get_mfs_path(
@@ -120,6 +124,19 @@ class RepoAPI(CommonAPI):
         return True
 
     @atomic
-    def param(self, author):
-        """ Sets a repo parameter value """
-        self._param(author, write_global=False)
+    def id(self, path, key):
+        """ Set the ID to use for this repo """
+        if key is not None and key not in self.all_ipfs_ids():
+            self.print_err('No such key')
+            self.print_err('Run `ipvc id` to list available keys')
+            raise RuntimeError()
+
+        fs_repo_root = self.get_repo_root(path)
+        id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
+        if key is None:
+            self.print(f'Key: {self.repo_id}')
+            peer_id = self.id_info(self.repo_id)['peer_id']
+            self.print_id(peer_id, self.ids['local'][self.repo_id])
+        else:
+            self.ipfs.files_write(id_path, io.BytesIO(key.encode('utf-8')),
+                                  create=True, truncate=True)
