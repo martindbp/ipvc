@@ -3,11 +3,22 @@ import sys
 import json
 import shutil
 
+import ipfsapi
+
 from ipvc.common import CommonAPI, atomic
 
 class IdAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def _resolve_key(self, path, key):
+        if key is None:
+            fs_repo_root = self.get_repo_root(path)
+            if fs_repo_root is None:
+                self.print_err('There is no repo here')
+                raise RuntimeError()
+            key = self.repo_path_id(fs_repo_root)
+        return key
 
     @atomic
     def ls(self):
@@ -54,26 +65,14 @@ class IdAPI(CommonAPI):
 
     @atomic
     def get(self, path, key=None):
-        if key is None:
-            fs_repo_root = self.get_repo_root(path)
-            if fs_repo_root is None:
-                self.print_err('There is no repo here') 
-                raise RuntimeError()
-            key = self.repo_path_id(fs_repo_root)
-
+        key = self._resolve_key(path, key)
         peer_id = self.id_info(key)['peer_id']
         data = self.ids['local'][key]
         self.print_id(peer_id, data)
 
     @atomic
     def set(self, path, key=None, **kwargs):
-        if key is None:
-            fs_repo_root = self.get_repo_root(path)
-            if fs_repo_root is None:
-                self.print_err('There is no repo here') 
-                raise RuntimeError()
-            key = self.repo_path_id(fs_repo_root)
-
+        key = self._resolve_key(path, key)
         if key not in self.all_ipfs_ids():
             self.print_err('There is no such key')
             raise RuntimeError()
@@ -90,9 +89,27 @@ class IdAPI(CommonAPI):
         self.invalidate_cache(['repo_id', 'ids'])
 
     @atomic
-    def publish(self, path, key=None):
-        pass
+    def publish(self, path, key=None, lifetime='8760h'):
+        key = self._resolve_key(path, key)
+        peer_id = self.id_info(key)['peer_id']
+        data = self.ids['local'][key]
+        self.print(f'Publishing identity to IPNS:')
+        self.print_id(peer_id, data, '  ')
+        self.print('')
+
+        # Delete the old identity if there
+        id_path = self.get_mfs_path(ipvc_info='public/identity')
+        try:
+            self.ipfs.files_rm(id_path)
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        id_bytes = io.BytesIO(json.dumps(data).encode('utf-8'))
+        self.ipfs.files_write(id_path, id_bytes, create=True, truncate=True)
+        self.publish_ipns(key, lifetime)
+
 
     @atomic
-    def resolve(self, peer_id=None, name=None):
+    def resolve(self, peer_id=None):
+        """ Resolve info for remote ids that we've seen in commits """
         pass

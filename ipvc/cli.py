@@ -88,9 +88,11 @@ def main():
         '--path', help='Path to repo', default=cwd)
     id_publish_parser.add_argument(
         '--key', help='Key name')
+    id_publish_parser.add_argument(
+        '--lifetime', default='8760h', help='Lifetime this identity will be valid, defaults to 1yr')
 
     id_resolve_parser = id_subparsers.add_parser(
-        'resolve', description='Resolve remote ids from IPNS`')
+        'resolve', description='Resolve info for remote ids seen in commits from IPNS`')
     id_resolve_parser.set_defaults(subcommand='resolve')
     id_resolve_parser.add_argument('--name', help='Remote name')
     id_resolve_parser.add_argument('--peer_id', help='Remote peer id')

@@ -698,3 +698,22 @@ class CommonAPI:
         self.print(f'{lead}Description: {data.get("desc", "Not set")}')
         self.print(f'{lead}Img: {data.get("img", "Not set")}')
         self.print(f'{lead}Link: {data.get("link", "Not set")}')
+
+    def publish_ipns(self, key, lifetime):
+        """
+        Publishes the /ipvc/public folder as the IPNS entry for key
+        """
+        self.print('This might take several minutes')
+        self.print(('Running your local IPFS deamon with the option '
+                    '--enable-namesys-pubsub might speed up the propagation'))
+        # Try creating the public directory if it doesn't exist
+        public_path = self.get_mfs_path(ipvc_info='public')
+        try:
+            self.ipfs.files_mkdir(public_path, parents=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        public_hash = self.ipfs.files_stat(public_path)['Hash']
+        self.ipfs.name_publish(public_hash, key=key, lifetime=lifetime)
+        self.print('Publishing done')
+

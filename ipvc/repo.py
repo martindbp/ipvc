@@ -125,7 +125,7 @@ class RepoAPI(CommonAPI):
 
     @atomic
     def id(self, path, key):
-        """ Set the ID to use for this repo """
+        """ Get/Set the ID to use for this repo """
         if key is not None and key not in self.all_ipfs_ids():
             self.print_err('No such key')
             self.print_err('Run `ipvc id` to list available keys')
