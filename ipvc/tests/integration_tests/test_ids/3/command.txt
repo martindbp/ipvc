@@ -1,0 +1,1 @@
+ipvc  --mfs-namespace /test id set --name Bob --email bob@bob.com --desc 'Nice guy bob'

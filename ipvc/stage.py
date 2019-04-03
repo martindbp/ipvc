@@ -115,7 +115,7 @@ class StageAPI(CommonAPI):
             raise RuntimeError
 
         # Retrieve cryptographic data for commit signing and author commit entry
-        id_info = self.id_info(self.repo_id)
+        id_peer_keys = self.id_peer_keys(self.repo_id)
 
         # Create commit_metadata if not provided
         if commit_metadata is None:
@@ -129,8 +129,8 @@ class StageAPI(CommonAPI):
             commit_metadata = {
                 'message': message,
                 'author': {
-                    'peer_id': id_info['peer_id'],
-                    'public_key': id_info['pub_key_pem']
+                    'peer_id': id_peer_keys['peer_id'],
+                    'public_key': id_peer_keys['pub_key_pem']
                 },
                 'timestamp': datetime.utcnow().isoformat(),
             }
@@ -166,10 +166,10 @@ class StageAPI(CommonAPI):
         # Sign the commit bundle and data hash
         bundle_hash = self.ipfs.files_stat(f'{mfs_head}/data/bundle')['Hash'].encode('utf-8')
         data_hash = self.ipfs.files_stat(f'{mfs_head}/data/')['Hash'].encode('utf-8')
-        data_signature = id_info['rsa_priv_key'].sign(data_hash, K='wtf?')[0]
-        assert id_info['rsa_pub_key'].verify(data_hash, (data_signature,))
-        bundle_signature = id_info['rsa_priv_key'].sign(bundle_hash, K='wtf?')[0]
-        assert id_info['rsa_pub_key'].verify(bundle_hash, (bundle_signature,))
+        data_signature = id_peer_keys['rsa_priv_key'].sign(data_hash, K='wtf?')[0]
+        assert id_peer_keys['rsa_pub_key'].verify(data_hash, (data_signature,))
+        bundle_signature = id_peer_keys['rsa_priv_key'].sign(bundle_hash, K='wtf?')[0]
+        assert id_peer_keys['rsa_pub_key'].verify(bundle_hash, (bundle_signature,))
 
         # Write signed hashes to commit 
         self.ipfs.files_write(

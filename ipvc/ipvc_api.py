@@ -15,8 +15,8 @@ import ipfsapi
 
 class IPVC:
     def __init__(self, cwd:Path=None, mfs_namespace=None, ipfs_ip=None,
-                 delete_mfs=False, init_mfs=True, quiet=False, verbose=False,
-                 stdout=None, stderr=None):
+                 delete_mfs=False, init_mfs=True, quiet=False, quieter=False,
+                 verbose=False, stdout=None, stderr=None):
         cwd = cwd or Path.cwd()
         mfs_namespace = mfs_namespace or '/'
         assert isinstance(cwd, Path)
@@ -97,7 +97,8 @@ class IPVC:
         for m in profile_methods:
             setattr(self.ipfs, m, _profile(getattr(self.ipfs, m)))
 
-        args = (self, self.ipfs, cwd, mfs_namespace, quiet, verbose, stdout, stderr)
+        args = (self, self.ipfs, cwd, mfs_namespace, quiet, quieter, verbose,
+                stdout, stderr)
         self.repo = RepoAPI(*args)
         self.stage = StageAPI(*args)
         self.branch = BranchAPI(*args)

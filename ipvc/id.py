@@ -11,29 +11,21 @@ class IdAPI(CommonAPI):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-    def _resolve_key(self, path, key):
-        if key is None:
-            fs_repo_root = self.get_repo_root(path)
-            if fs_repo_root is None:
-                self.print_err('There is no repo here')
-                raise RuntimeError()
-            key = self.repo_path_id(fs_repo_root)
-        return key
-
     @atomic
-    def ls(self):
+    def ls(self, unused=False):
         """
         List all local and remote ids
         """
-        unused = set(self.all_ipfs_ids()) - set(self.ids['local'])
-        if len(unused) > 0:
-            self.print('Unused IPFS keys:')
-            self.print('\n'.join(unused))
-            self.print(('\nNOTE: to create a new IPFS key and id, run '
-                       '`ipvc create <key_name>`\n'))
+        if unused:
+            unused_keys = set(self.all_ipfs_ids()) - set(self.ids['local'])
+            if len(unused_keys) > 0:
+                self.print('\n'.join(unused_keys))
+                self.print(('\nNOTE: to create a new IPFS key and id, run '
+                            '`ipvc create <key_name>`\n'))
+            return
         
         for key_name, data in self.ids['local'].items():
-            peer_id = self.id_info(key_name)['peer_id']
+            peer_id = self.id_peer_keys(key_name)['peer_id']
             self.print(f'Local: {key_name}')
             self.print_id(peer_id, data, '  ')
 
@@ -42,37 +34,52 @@ class IdAPI(CommonAPI):
             self.print_id(peer_id, data, '  ')
 
     @atomic
-    def create(self, key=None):
+    def create(self, key, use=False):
         """
         Creates new IPFS key for a IPVC id
         """
+        fs_repo_root, _ = self.common()
         self.print(f'Generating key with name "{key}"')
         all_ids = self.all_ipfs_ids()
         if key in all_ids:
             self.print_err('Key by that name already exists')
-            raise RuntimeError()
+            if use:
+                self.print('Using the id for this repo')
+                self.ipvc.repo.id(key)
+            return
 
         try:
             ret = self.ipfs.key_gen(key, 'rsa', 2048)
-            self.print(f'Generated key with PeerID {ret["Id"]}')
-            self.print('To set parameters for the key, use ')
-            self.print((f'`ipvc set [--name <...>] [--email <...>] [--desc <...>] '
-                        '[--img <...>] [--link <...>] [--key_name <...>] [<path>]`'))
-            self.print('To set an ID for a repo, use `ipvc repo id <key_name>`')
+            self.print(f'Generated id with PeerID {ret["Id"]}')
+            self.print((f'To set parameters for the id, run '
+                        '`ipvc set [--name ...] [--email ...] [--desc ...] '
+                        '[--img ...] [--link ...]`'))
+            if use:
+                self.print('Using the id for this repo')
+                self.ipvc.repo.id(key)
+            else:
+                self.print(f'To set this id for a repo, use `ipvc repo id {key}`')
         except:
             self.print_err('Failed')
             raise RuntimeError()
 
     @atomic
-    def get(self, path, key=None):
-        key = self._resolve_key(path, key)
-        peer_id = self.id_info(key)['peer_id']
-        data = self.ids['local'][key]
+    def get(self, key=None):
+        """ Get info for an ID """
+        self.common()
+
+        if key is None: key = self.repo_id
+        peer_id = self.id_peer_keys(key)['peer_id']
+        data = self.ids['local'].get(key, {})
+        self.print(f'Key: {key}')
         self.print_id(peer_id, data)
 
     @atomic
-    def set(self, path, key=None, **kwargs):
-        key = self._resolve_key(path, key)
+    def set(self, key=None, **kwargs):
+        """ Set info for an ID """
+        self.common()
+
+        if key is None: key = self.repo_id
         if key not in self.all_ipfs_ids():
             self.print_err('There is no such key')
             raise RuntimeError()
@@ -82,23 +89,37 @@ class IdAPI(CommonAPI):
             ids['local'][key] = {}
 
         ids['local'][key].update(kwargs.items())
+        empty_params = []
+        for param, val in ids['local'][key].items():
+            if val is None:
+                empty_params.append(param)
+        for param in empty_params:
+            del ids['local'][key][param]
+
         ids_path = self.get_mfs_path(ipvc_info='ids')
         ids_bytes = io.BytesIO(json.dumps(ids).encode('utf-8'))
         self.ipfs.files_write(ids_path, ids_bytes, create=True, truncate=True)
 
-        self.invalidate_cache(['repo_id', 'ids'])
+        self.invalidate_cache(['id', 'ids'])
 
     @atomic
-    def publish(self, path, key=None, lifetime='8760h'):
-        key = self._resolve_key(path, key)
-        peer_id = self.id_info(key)['peer_id']
+    def publish(self, key=None, lifetime='8760h'):
+        self.common()
+
+        if key is None: key = self.repo_id
+        peer_id = self.id_peer_keys(key)['peer_id']
         data = self.ids['local'][key]
         self.print(f'Publishing identity to IPNS:')
         self.print_id(peer_id, data, '  ')
         self.print('')
 
         # Delete the old identity if there
-        id_path = self.get_mfs_path(ipvc_info='public/identity')
+        pub_path = self.get_mfs_path(ipvc_info=f'published/{key}')
+        try:
+            self.ipfs.files_mkdir(pub_path, parents=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+        id_path = f'{pub_path}/identity'
         try:
             self.ipfs.files_rm(id_path)
         except ipfsapi.exceptions.StatusError:

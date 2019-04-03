@@ -122,12 +122,13 @@ def atomic(api_method):
 
 class CommonAPI:
     def __init__(self, _ipvc, _ipfs, _fs_cwd, _namespace='/', quiet=False,
-                 verbose=False, stdout=None, stderr=None):
+                 quieter=False, verbose=False, stdout=None, stderr=None):
         self.ipvc = _ipvc
         self.ipfs = _ipfs
         self.fs_cwd = _fs_cwd
         self.namespace = Path(_namespace)
         self.quiet = quiet
+        self.quieter = quieter
         self.verbose = verbose
         self.stdout = stdout
         self.stderr = stderr
@@ -135,12 +136,13 @@ class CommonAPI:
 
 
     def print(self, *args, **kwargs):
-        if self.quiet: return
+        if self.quiet or self.quieter: return
         print(*args, **kwargs)
         if self.stdout:
             print(*args, **kwargs, file=self.stdout)
 
     def print_err(self, *args, **kwargs):
+        if self.quieter: return
         print(*args, **kwargs, file=sys.stderr)
         if self.stderr:
             print(*args, **kwargs, file=self.stderr)
@@ -620,8 +622,10 @@ class CommonAPI:
         short_desc, *rest = msg.split('\n')
         return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)
 
-    def repo_path_id(self, repo_path):
-        id_path = self.get_mfs_path(repo_path, repo_info='id')
+    @property
+    @cached_property
+    def repo_id(self):
+        id_path = self.get_mfs_path(self.fs_repo_root, repo_info='id')
         try:
             return self.ipfs.files_read(id_path).decode('utf-8')
         except ipfsapi.exceptions.StatusError:
@@ -629,11 +633,6 @@ class CommonAPI:
             self.ipfs.files_write(id_path, io.BytesIO(b'self'),
                                   create=True, truncate=True)
             return 'self'
-
-    @property
-    @cached_property
-    def repo_id(self):
-        return self.repo_path_id(self.fs_repo_root)
 
     @property
     @cached_property
@@ -657,7 +656,7 @@ class CommonAPI:
             keys.append(os.path.basename(path))
         return keys
 
-    def id_info(self, key_name):
+    def id_peer_keys(self, key_name):
         mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
         ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
 
@@ -701,19 +700,22 @@ class CommonAPI:
 
     def publish_ipns(self, key, lifetime):
         """
-        Publishes the /ipvc/public folder as the IPNS entry for key
+        Publishes the /ipvc/published/{key} folder as the IPNS entry for key
         """
         self.print('This might take several minutes')
         self.print(('Running your local IPFS deamon with the option '
                     '--enable-namesys-pubsub might speed up the propagation'))
         # Try creating the public directory if it doesn't exist
-        public_path = self.get_mfs_path(ipvc_info='public')
+        pub_key_path = self.get_mfs_path(ipvc_info=f'published/{key}')
         try:
-            self.ipfs.files_mkdir(public_path, parents=True)
+            self.ipfs.files_mkdir(pub_key_path, parents=True)
         except ipfsapi.exceptions.StatusError:
             pass
 
-        public_hash = self.ipfs.files_stat(public_path)['Hash']
-        self.ipfs.name_publish(public_hash, key=key, lifetime=lifetime)
+        pub_key_hash = self.ipfs.files_stat(pub_key_path)['Hash']
+        self.ipfs.name_publish(pub_key_hash, key=key, lifetime=lifetime)
         self.print('Publishing done')
 
+    def prepare_publish_branch(self, repo_path, branch):
+        """ Copy branch to public """
+        pass

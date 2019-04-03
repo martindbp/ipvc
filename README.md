@@ -112,8 +112,8 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo ls # list all repos in ipvc`
 * `ipvc repo mv [<from>] <to> # move a repository`
 * `ipvc repo id [<key>] # get/set id for repository`
-* `//ipvc repo publish [--name] <path> # publish the repo to IPNS with a name`
-* `//ipvc repo unpublish <path> # unpublish the repo from IPNS`
+* `//ipvc repo publish [--repo-name <name>] # publish the repo to IPNS with a name`
+* `//ipvc repo unpublish # unpublish the repo from IPNS`
 * `//ipvc repo clone [--name] <IPFS/IPNS> # clone a repo as name`
 * `//ipvc repo remote [<IPNS>] # show/set remote destination of repo`
 * `ipvc branch # status`
@@ -130,7 +130,7 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch rewrite # analagous to git rebase -i`
 * `//ipvc branch fetch # download the latest remote of this branch`
 * `//ipvc branch pull # fetch and merge`
-* `//ipvc branch publish # publish branch to IPNS`
+* `//ipvc branch publish [--repo-name <name>] [<branch>] # publish branch to IPNS`
 * `//ipvc branch unpublish`
 * `ipvc stage # status`
 * `ipvc stage add <path>`
@@ -141,9 +141,9 @@ Note: commands not yet implemented are "commented" out
 * `ipvc diff [--files] [<to-refpath>] [<from-refpath>] # defaults to @workspace -> @stage, equivalent to git diff`
 * `ipvc id # List all local and remote ids`
 * `ipvc id create <key> # Creates a new key/id`
-* `ipvc id get [--path <path>] [--key <key>] # Show identity used for repo or key`
-* `ipvc id set [--path <path>] [--name <name>] [--email <email>] [--desc <desc>] [--img <img_hash>] <key> # Create identity for ipfs key / repo`
-* `ipvc id publish [--path <path>] [--key <key>] # Publish id data on IPNS
+* `ipvc id get [--key <key>] # Show identity used for repo or key`
+* `ipvc id set [--name <name>] [--email <email>] [--desc <desc>] [--img <img_hash>] <key> # Create identity for ipfs key / repo`
+* `ipvc id publish [--key <key>] # Publish id data on IPNS
 * `//ipvc id resolve [--peer_id <peer_id>] [--name <name>] # Resolve remote ids from IPNS`
 
 ## How

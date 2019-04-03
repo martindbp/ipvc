@@ -1,0 +1,7 @@
+Key: ipvc_test_key
+PeerID: Qm********************************************
+Name: Bob
+Email: bob@bob.com
+Description: Nice guy bob
+Img: Not set
+Link: Not set

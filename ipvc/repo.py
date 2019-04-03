@@ -124,19 +124,19 @@ class RepoAPI(CommonAPI):
         return True
 
     @atomic
-    def id(self, path, key):
+    def id(self, key):
         """ Get/Set the ID to use for this repo """
+        fs_repo_root , _  = self.common()
         if key is not None and key not in self.all_ipfs_ids():
             self.print_err('No such key')
             self.print_err('Run `ipvc id` to list available keys')
             raise RuntimeError()
 
-        fs_repo_root = self.get_repo_root(path)
-        id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
         if key is None:
             self.print(f'Key: {self.repo_id}')
-            peer_id = self.id_info(self.repo_id)['peer_id']
-            self.print_id(peer_id, self.ids['local'][self.repo_id])
+            peer_id = self.id_peer_keys(self.repo_id)['peer_id']
+            self.print_id(peer_id, self.ids['local'].get(self.repo_id, {}))
         else:
+            id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
             self.ipfs.files_write(id_path, io.BytesIO(key.encode('utf-8')),
                                   create=True, truncate=True)

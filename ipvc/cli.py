@@ -17,7 +17,9 @@ def main():
     parser.add_argument(
         '-v', '--verbose', action='store_true', help='Verbose output')
     parser.add_argument(
-        '-q', '--quiet', action='store_true', help='No printing')
+        '-q', '--quiet', action='store_true', help='No printing to stdout')
+    parser.add_argument(
+        '-qr', '--quieter', action='store_true', help='No printing to stdout/stderr')
     parser.add_argument(
         '-p', '--profile', action='store_true', help='Profile the program')
     parser.add_argument(
@@ -48,26 +50,26 @@ def main():
     id_ls_parser = id_subparsers.add_parser(
         'ls', description='List all local and remote ids')
     id_ls_parser.set_defaults(subcommand='ls')
+    id_ls_parser.add_argument(
+        '-u', '--unused', action="store_true", help='Show unused IPFS keys')
 
     id_create_parser = id_subparsers.add_parser(
         'create', description='Create new id')
     id_create_parser.set_defaults(subcommand='create')
     id_create_parser.add_argument(
         'key', help='Key name')
+    id_create_parser.add_argument(
+        '-u', '--use', action="store_true", help='Use newly created key for this repo')
 
     id_get_parser = id_subparsers.add_parser(
         'get', description='Get identity used for repo or key')
     id_get_parser.set_defaults(subcommand='get')
     id_get_parser.add_argument(
-        '--path', help='Path to repo', default=cwd)
-    id_get_parser.add_argument(
-        '--key', help='Key name')
+        'key', nargs='?', help='Key name')
 
     id_set_parser = id_subparsers.add_parser(
         'set', description='Set identity parameters for key/repo')
     id_set_parser.set_defaults(subcommand='set')
-    id_set_parser.add_argument(
-        '--path', help='Path to repo', default=cwd)
     id_set_parser.add_argument(
         '--name', help='Name')
     id_set_parser.add_argument(
@@ -79,17 +81,15 @@ def main():
     id_set_parser.add_argument(
         '--link', help='Link to a website or IPFS hash')
     id_set_parser.add_argument(
-        '--key', help='Key name')
+        'key', nargs='?', help='Key name')
 
     id_publish_parser = id_subparsers.add_parser(
         'publish', description='Publish id parameters to IPNS for key/repo')
     id_publish_parser.set_defaults(subcommand='publish')
     id_publish_parser.add_argument(
-        '--path', help='Path to repo', default=cwd)
-    id_publish_parser.add_argument(
-        '--key', help='Key name')
-    id_publish_parser.add_argument(
         '--lifetime', default='8760h', help='Lifetime this identity will be valid, defaults to 1yr')
+    id_publish_parser.add_argument(
+        'key', nargs='?', help='Key name')
 
     id_resolve_parser = id_subparsers.add_parser(
         'resolve', description='Resolve info for remote ids seen in commits from IPNS`')
@@ -123,7 +123,6 @@ def main():
 
     repo_id_parser = repo_subparsers.add_parser('id', description='Show or set ID for repo')
     repo_id_parser.set_defaults(subcommand='id')
-    repo_id_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
     repo_id_parser.add_argument('key', nargs='?', help='Key name', default=None)
 
     # ------------- BRANCH --------------
@@ -250,6 +249,7 @@ def main():
     kwargs.pop('subcommand')
     kwargs.pop('profile')
     quiet = kwargs.pop('quiet')
+    quieter = kwargs.pop('quieter')
     verbose = kwargs.pop('verbose')
     delete_mfs = kwargs.pop('delete_mfs')
     ipfs_ip = kwargs.pop('ipfs_ip')
@@ -290,9 +290,9 @@ def main():
         print(ipvc.__version__)
         exit(0)
 
-    api = IPVC(quiet=quiet, verbose=verbose, mfs_namespace=mfs_namespace,
-               ipfs_ip=ipfs_ip, delete_mfs=delete_mfs, stdout=stdout_file,
-               stderr=stderr_file)
+    api = IPVC(quiet=quiet, quieter=quieter, verbose=verbose,
+               mfs_namespace=mfs_namespace, ipfs_ip=ipfs_ip,
+               delete_mfs=delete_mfs, stdout=stdout_file, stderr=stderr_file)
     route = getattr(getattr(api, args.command), args.subcommand)
     if args.profile:
         cProfile.run('route(**kwargs)')

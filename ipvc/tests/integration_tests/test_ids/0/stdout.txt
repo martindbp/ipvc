@@ -1,0 +1,3 @@
+Getting ipfs repo info (this can be slow...)
+Reading workspace files
+Successfully created repository
