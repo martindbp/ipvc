@@ -21,7 +21,7 @@ class IdAPI(CommonAPI):
             if len(unused_keys) > 0:
                 self.print('\n'.join(unused_keys))
                 self.print(('\nNOTE: to create a new IPFS key and id, run '
-                            '`ipvc create <key_name>`\n'))
+                            '`ipvc create <key_name>`'))
             return
         
         for key_name, data in self.ids['local'].items():
@@ -96,11 +96,10 @@ class IdAPI(CommonAPI):
         for param in empty_params:
             del ids['local'][key][param]
 
-        ids_path = self.get_mfs_path(ipvc_info='ids')
+        mfs_ids_path = self.get_mfs_path(ipvc_info='ids')
         ids_bytes = io.BytesIO(json.dumps(ids).encode('utf-8'))
-        self.ipfs.files_write(ids_path, ids_bytes, create=True, truncate=True)
-
-        self.invalidate_cache(['id', 'ids'])
+        self.ipfs.files_write(mfs_ids_path, ids_bytes, create=True, truncate=True)
+        self.invalidate_cache(['repo_id', 'ids'])
 
     @atomic
     def publish(self, key=None, lifetime='8760h'):
@@ -114,19 +113,30 @@ class IdAPI(CommonAPI):
         self.print('')
 
         # Delete the old identity if there
-        pub_path = self.get_mfs_path(ipvc_info=f'published/{key}')
+        mfs_pub_path = self.get_mfs_path(ipvc_info=f'published/{key}')
         try:
-            self.ipfs.files_mkdir(pub_path, parents=True)
+            self.ipfs.files_mkdir(mfs_pub_path, parents=True)
         except ipfsapi.exceptions.StatusError:
             pass
-        id_path = f'{pub_path}/identity'
+
+        data_json_bytes = json.dumps(data).encode('utf-8')
+
+        mfs_id_path = f'{mfs_pub_path}/identity'
         try:
-            self.ipfs.files_rm(id_path)
+            prev_data = json.loads(self.ipfs.files_read(mfs_id_path).decode('utf-8'))
+            if prev_data == data_json_bytes:
+                self.print('Published identity is current')
+                return
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        try:
+            self.ipfs.files_rm(mfs_id_path)
         except ipfsapi.exceptions.StatusError:
             pass
 
         id_bytes = io.BytesIO(json.dumps(data).encode('utf-8'))
-        self.ipfs.files_write(id_path, id_bytes, create=True, truncate=True)
+        self.ipfs.files_write(mfs_id_path, id_bytes, create=True, truncate=True)
         self.publish_ipns(key, lifetime)
 
 

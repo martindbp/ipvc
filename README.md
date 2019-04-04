@@ -112,9 +112,10 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo ls # list all repos in ipvc`
 * `ipvc repo mv [<from>] <to> # move a repository`
 * `ipvc repo id [<key>] # get/set id for repository`
-* `//ipvc repo publish [--repo-name <name>] # publish the repo to IPNS with a name`
-* `//ipvc repo unpublish # unpublish the repo from IPNS`
-* `//ipvc repo clone [--name] <IPFS/IPNS> # clone a repo as name`
+* `ipvc repo name [<name>] # get/set name for repository`
+* `ipvc repo publish # publish the repo to IPNS`
+* `ipvc repo unpublish # unpublish the repo from IPNS`
+* `//ipvc repo clone [--name <name>] <IPFS/IPNS> # clone a repo as name`
 * `//ipvc repo remote [<IPNS>] # show/set remote destination of repo`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
@@ -123,7 +124,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc branch show <refpath> # shows content of refpath`
 * `ipvc branch ls # list branches`
 * `ipvc branch merge [--abort] [--resolve [<message>]] [--no-ff] <branch> # analagous to git merge`
-* `ipvc branch replay [--abort] [--resolve] <branch> # analagous to git rebase`
+* `ipvc branch replay [--abort] [--resume] <branch> # analagous to git rebase`
 * `//ipvc branch rm <branch name>`
 * `//ipvc branch mv [<from>] <to>`
 * `//ipvc branch reset [<path>] # reset workspace at path`
@@ -139,7 +140,8 @@ Note: commands not yet implemented are "commented" out
 * `ipvc stage diff # alias for ipvc diff stage workspace, equivalent to git diff --cached`
 * `//ipvc stage uncommit`
 * `ipvc diff [--files] [<to-refpath>] [<from-refpath>] # defaults to @workspace -> @stage, equivalent to git diff`
-* `ipvc id # List all local and remote ids`
+* `ipvc id # list`
+* `ipvc id list [--unused] # List all local and remote ids`
 * `ipvc id create <key> # Creates a new key/id`
 * `ipvc id get [--key <key>] # Show identity used for repo or key`
 * `ipvc id set [--name <name>] [--email <email>] [--desc <desc>] [--img <img_hash>] <key> # Create identity for ipfs key / repo`

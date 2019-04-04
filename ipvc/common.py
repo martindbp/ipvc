@@ -637,39 +637,39 @@ class CommonAPI:
     @property
     @cached_property
     def ids(self):
-        ids_path = self.get_mfs_path(ipvc_info='ids')
+        mfs_ids_path = self.get_mfs_path(ipvc_info='ids')
         try:
-            return json.loads(self.ipfs.files_read(ids_path).decode('utf-8'))
+            return json.loads(self.ipfs.files_read(mfs_ids_path).decode('utf-8'))
         except ipfsapi.exceptions.StatusError:
             # Write empty json
             ids = {'local': {}, 'remote': {}}
             self.ipfs.files_write(
-                ids_path, io.BytesIO(json.dumps(ids).encode('utf-8')),
+                mfs_ids_path, io.BytesIO(json.dumps(ids).encode('utf-8')),
                 create=True, truncate=True)
             return ids
 
     def all_ipfs_ids(self):
         mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
-        ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
+        fs_ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
         keys = ['self']
-        for path in (Path(ipfs_repo_path) / 'keystore').glob('*'):
+        for path in (Path(fs_ipfs_repo_path) / 'keystore').glob('*'):
             keys.append(os.path.basename(path))
         return keys
 
     def id_peer_keys(self, key_name):
         mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
-        ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
+        fs_ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
 
         priv_key_protobuf = None
         peer_id = None
         if key_name == 'self':
-            with open(Path(ipfs_repo_path) / 'config') as f:
+            with open(Path(fs_ipfs_repo_path) / 'config') as f:
                 config = json.loads(f.read())
                 identity = config['Identity']
                 peer_id = identity ['PeerID']
                 priv_key_protobuf = base64.b64decode(identity['PrivKey'])
         else:
-            with open(Path(ipfs_repo_path) / 'keystore' / key_name, 'rb') as f:
+            with open(Path(fs_ipfs_repo_path) / 'keystore' / key_name, 'rb') as f:
                 priv_key_protobuf = f.read()
             for key in self.ipfs.key_list()['Keys']:
                 if key['Name'] == key_name:
@@ -706,16 +706,40 @@ class CommonAPI:
         self.print(('Running your local IPFS deamon with the option '
                     '--enable-namesys-pubsub might speed up the propagation'))
         # Try creating the public directory if it doesn't exist
-        pub_key_path = self.get_mfs_path(ipvc_info=f'published/{key}')
+        mfs_pub_key_path = self.get_mfs_path(ipvc_info=f'published/{key}')
         try:
-            self.ipfs.files_mkdir(pub_key_path, parents=True)
+            self.ipfs.files_mkdir(mfs_pub_key_path, parents=True)
         except ipfsapi.exceptions.StatusError:
             pass
 
-        pub_key_hash = self.ipfs.files_stat(pub_key_path)['Hash']
+        pub_key_hash = self.ipfs.files_stat(mfs_pub_key_path)['Hash']
         self.ipfs.name_publish(pub_key_hash, key=key, lifetime=lifetime)
         self.print('Publishing done')
 
-    def prepare_publish_branch(self, repo_path, branch):
-        """ Copy branch to public """
-        pass
+    def prepare_publish_branch(self, key, branch, name):
+        """ Copy branch to the publish folder """
+        mfs_head = self.get_mfs_path(
+            self.fs_repo_root, branch, branch_info='head')
+
+        mfs_pub_branch = self.get_mfs_path(
+            ipvc_info=f'published/{key}/repos/{name}/{branch}')
+        try:
+            self.ipfs.files_rm(mfs_pub_branch, recursive=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        try:
+            self.ipfs.files_mkdir(os.path.dirname(mfs_pub_branch), parents=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        self.ipfs.files_cp(mfs_head, mfs_pub_branch)
+
+    @property
+    @cached_property
+    def repo_name(self):
+        mfs_repo_namepath = self.get_mfs_path(self.fs_repo_root, repo_info='name')
+        try:
+            return self.ipfs.files_read(mfs_repo_namepath).decode('utf-8')
+        except ipfsapi.exceptions.StatusError:
+            return None

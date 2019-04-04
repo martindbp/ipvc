@@ -124,7 +124,7 @@ class RepoAPI(CommonAPI):
         return True
 
     @atomic
-    def id(self, key):
+    def id(self, key=None):
         """ Get/Set the ID to use for this repo """
         fs_repo_root , _  = self.common()
         if key is not None and key not in self.all_ipfs_ids():
@@ -137,6 +137,71 @@ class RepoAPI(CommonAPI):
             peer_id = self.id_peer_keys(self.repo_id)['peer_id']
             self.print_id(peer_id, self.ids['local'].get(self.repo_id, {}))
         else:
-            id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
-            self.ipfs.files_write(id_path, io.BytesIO(key.encode('utf-8')),
+            mfs_id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
+            self.ipfs.files_write(mfs_id_path, io.BytesIO(key.encode('utf-8')),
                                   create=True, truncate=True)
+            self.invalidate_cache(['repo_id', 'ids'])
+
+    @atomic
+    def name(self, name=None):
+        """ Get/Set the ID to use for this repo """
+        fs_repo_root , _  = self.common()
+        if name is None:
+            self.print(self.repo_name)
+        else:
+            mfs_repo_namepath = self.get_mfs_path(fs_repo_root, repo_info='name')
+            self.ipfs.files_write(mfs_repo_namepath, io.BytesIO(name.encode('utf-8')),
+                                  create=True, truncate=True)
+
+    @atomic
+    def publish(self, lifetime='8760h'):
+        """ Publish repo with a name to IPNS """
+        self.common()
+
+        if self.repo_name is None:
+            self.print_err(('This repo has no name, set one with '
+                           '`ipvc repo name <name>` and publish again'))
+            raise RuntimeError()
+
+        peer_id = self.id_peer_keys(self.repo_id)['peer_id']
+        data = self.ids['local'][self.repo_id]
+        self.print(f'Publishing repo with name "{self.repo_name}" to {peer_id}')
+
+        mfs_repo_path = self.get_mfs_path(
+            ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}')
+        try:
+            self.ipfs.files_rm(mfs_repo_path, recursive=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+
+        changed = False
+        for branch in self.branches:
+            changed = changed or self.prepare_publish_branch(
+                self.repo_id, branch, self.repo_name)
+
+        if not changed:
+            self.print('None of the branches changed since last published')
+            return
+
+        self.publish_ipns(self.repo_id, lifetime)
+
+    @atomic
+    def unpublish(self, lifetime='8760h'):
+        self.common()
+
+        if self.repo_name is None:
+            self.print_err('This repo has not been published')
+            raise RuntimeError()
+
+        peer_id = self.id_peer_keys(self.repo_id)['peer_id']
+        data = self.ids['local'][self.repo_id]
+        mfs_repo_path = self.get_mfs_path(
+            ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}')
+        try:
+            self.ipfs.files_rm(mfs_repo_path, recursive=True)
+        except ipfsapi.exceptions.StatusError:
+            self.print_err('This repo has not been published')
+            raise RuntimeError()
+
+        self.print(f'Updating IPNS entry for {peer_id}')
+        self.publish_ipns(self.repo_id, lifetime)

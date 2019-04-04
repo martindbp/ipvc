@@ -121,9 +121,25 @@ def main():
     repo_rm_parser.set_defaults(subcommand='rm')
     repo_rm_parser.add_argument('--path', help='Path to repo to remove', default=cwd)
 
-    repo_id_parser = repo_subparsers.add_parser('id', description='Show or set ID for repo')
+    repo_id_parser = repo_subparsers.add_parser('id', description='Get/set ID for repo')
     repo_id_parser.set_defaults(subcommand='id')
     repo_id_parser.add_argument('key', nargs='?', help='Key name', default=None)
+
+    repo_name_parser = repo_subparsers.add_parser('name', description='Get/set name for repo')
+    repo_name_parser.set_defaults(subcommand='name')
+    repo_name_parser.add_argument('name', nargs='?', help='Name', default=None)
+
+    repo_publish_parser = repo_subparsers.add_parser(
+        'publish', description='Publish repo (all branches) to IPNS')
+    repo_publish_parser.set_defaults(subcommand='publish')
+    repo_publish_parser.add_argument(
+        '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
+
+    repo_unpublish_parser = repo_subparsers.add_parser(
+        'unpublish', description='Unpublish repo from IPNS')
+    repo_unpublish_parser.set_defaults(subcommand='unpublish')
+    repo_unpublish_parser.add_argument(
+        '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
 
     # ------------- BRANCH --------------
     branch_parser = subparsers.add_parser(
