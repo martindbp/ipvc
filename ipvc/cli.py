@@ -32,6 +32,8 @@ def main():
         default=None)
     parser.add_argument(
         '-d', '--delete-mfs', action='store_true', help='Delete IPVC in IPFS/MFS before running command')
+    parser.add_argument(
+        '-c', '--cwd', help='Set the current working dir (cwd)')
     parser.set_defaults(command='help', subcommand='')
     subparsers = parser.add_subparsers()
 
@@ -270,6 +272,7 @@ def main():
     delete_mfs = kwargs.pop('delete_mfs')
     ipfs_ip = kwargs.pop('ipfs_ip')
     mfs_namespace = kwargs.pop('mfs_namespace')
+    cwd = kwargs.pop('cwd') # Overwrite cwd with supplied path
     record_dir = kwargs.pop('record')
 
     n_path = None
@@ -307,7 +310,7 @@ def main():
         exit(0)
 
     api = IPVC(quiet=quiet, quieter=quieter, verbose=verbose,
-               mfs_namespace=mfs_namespace, ipfs_ip=ipfs_ip,
+               mfs_namespace=mfs_namespace, ipfs_ip=ipfs_ip, cwd=cwd,
                delete_mfs=delete_mfs, stdout=stdout_file, stderr=stderr_file)
     route = getattr(getattr(api, args.command), args.subcommand)
     if args.profile:
