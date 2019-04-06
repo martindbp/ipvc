@@ -110,8 +110,7 @@ def main():
 
     repo_init_parser = repo_subparsers.add_parser('init', description='Initialize a repo')
     repo_init_parser.set_defaults(subcommand='init')
-    repo_init_parser.add_argument(
-        '--path', help='Path to initialize', default=cwd)
+    repo_init_parser.add_argument('name', nargs='?', help='Repo name', default=None)
 
     repo_mv_parser = repo_subparsers.add_parser('mv', description='Move a repo')
     repo_mv_parser.set_defaults(subcommand='mv')

@@ -14,27 +14,28 @@ class RepoAPI(CommonAPI):
         """
         Lists all the repositories on the connected ipfs node MFS
         """
-        repos = list(self.list_repo_paths())
+        repos = list(self.list_repos())
         self.print('Found repositories at:')
-        for h, path in repos:
-            self.print(f'{h}: {path}')
+        for name, h, path in repos:
+            if name is None:
+                self.print(f'{h}: {path}')
+            else:
+                self.print(f'{name} {h}: {path}')
         return repos
 
     @atomic
-    def init(self, path=None):
+    def init(self, name=None):
         """
         Initializes a new repository at the current working directory
         """
-        path = path or self.fs_cwd
         # Create the new repository folder structure
-        fs_repo_root = self.get_repo_root(path)
-        if fs_repo_root is not None:
-            if len(str(fs_repo_root)) < len(str(path)):
+        if self.fs_repo_root is not None:
+            if len(str(self.fs_repo_root)) < len(str(self.fs_cwd)):
                 self.print_err(f'A repository already exists upstream from here at \
-                               {fs_repo_root}')
-            elif len(str(fs_repo_root)) > len(str(path)):
+                               {self.fs_repo_root}')
+            elif len(str(self.fs_repo_root)) > len(str(self.fs_cwd)):
                 self.print_err(f'A repository already exists downstream from here at \
-                               {fs_repo_root}')
+                               {self.fs_repo_root}')
             else:
                 self.print_err('A repository already exists here')
             raise RuntimeError()
@@ -44,24 +45,26 @@ class RepoAPI(CommonAPI):
         # folder) to diff against rather than having to handle it as a special case
         for ref in ['stage', 'workspace', 'head']:
             mfs_files = self.get_mfs_path(
-                path, 'master', branch_info=f'{ref}/data/bundle/files')
+                self.fs_cwd, 'master', branch_info=f'{ref}/data/bundle/files')
             self.ipfs.files_mkdir(mfs_files, parents=True)
 
+        if name is None:
+            self.print('Initializing unnamed repository')
+            self.print('You can use `ipvc repo name <name>` to set name at a later time')
+        else:
+            self.print(f'Initializing repository with name "{name}"')
+            self.set_repo_name(fs_cwd, name)
+
         # Store the active branch name in 'active_branch_name'
-        active_branch_path = self.get_mfs_path(
-            path, repo_info='active_branch_name')
-        self.ipfs.files_write(
-            active_branch_path, io.BytesIO(b'master'), create=True, truncate=True)
-        self.invalidate_cache()
+        self.set_active_branch(self.fs_cwd, 'master')
 
         # Write default ipfs id (self)
-        self.ipfs.files_write(self.get_mfs_path(path, repo_info='id'),
-                              io.BytesIO(b'self'), create=True, truncate=True)
+        self.set_repo_id(self.fs_cwd, 'self')
 
         # We cache this per repo, because repo_stat() is profoundly slow
         self.print('Getting ipfs repo info (this can be slow...)')
         mfs_ipfs_repo_path = self.get_mfs_path(
-            path, repo_info='ipfs_repo_path')
+            self.fs_cwd, repo_info='ipfs_repo_path')
         ipfs_repo_path = self.ipfs.repo_stat()['RepoPath']
         self.ipfs.files_write(
             mfs_ipfs_repo_path, io.BytesIO(ipfs_repo_path.encode('utf-8')),
@@ -77,12 +80,11 @@ class RepoAPI(CommonAPI):
     def mv(self, path1, path2):
         """ Move a repository from one path to another """
         if path2 is None:
-            fs_repo_root = self.get_repo_root()
-            if fs_repo_root is None:
+            if self.fs_repo_root is None:
                 self.print_err('No ipvc repository here')
                 raise RuntimeError()
             path2 = path1
-            path1 = fs_repo_root
+            path1 = self.fs_repo_root
         else:
             path1 = self.get_repo_root(path1)
             if path1 is None:
@@ -126,7 +128,7 @@ class RepoAPI(CommonAPI):
     @atomic
     def id(self, key=None):
         """ Get/Set the ID to use for this repo """
-        fs_repo_root , _  = self.common()
+        self.common()
         if key is not None and key not in self.all_ipfs_ids():
             self.print_err('No such key')
             self.print_err('Run `ipvc id` to list available keys')
@@ -137,21 +139,17 @@ class RepoAPI(CommonAPI):
             peer_id = self.id_peer_keys(self.repo_id)['peer_id']
             self.print_id(peer_id, self.ids['local'].get(self.repo_id, {}))
         else:
-            mfs_id_path = self.get_mfs_path(fs_repo_root, repo_info='id')
-            self.ipfs.files_write(mfs_id_path, io.BytesIO(key.encode('utf-8')),
-                                  create=True, truncate=True)
-            self.invalidate_cache(['repo_id', 'ids'])
+            self.set_repo_id(self.fs_repo_root, key)
 
     @atomic
     def name(self, name=None):
         """ Get/Set the ID to use for this repo """
-        fs_repo_root , _  = self.common()
+        self.common()
         if name is None:
             self.print(self.repo_name)
+            return name
         else:
-            mfs_repo_namepath = self.get_mfs_path(fs_repo_root, repo_info='name')
-            self.ipfs.files_write(mfs_repo_namepath, io.BytesIO(name.encode('utf-8')),
-                                  create=True, truncate=True)
+            self.set_repo_name(self.fs_repo_root, name)
 
     @atomic
     def publish(self, lifetime='8760h'):
@@ -205,3 +203,6 @@ class RepoAPI(CommonAPI):
 
         self.print(f'Updating IPNS entry for {peer_id}')
         self.publish_ipns(self.repo_id, lifetime)
+
+    def remote(self, peer_id, repo_name):
+       pass

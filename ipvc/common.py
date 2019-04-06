@@ -217,16 +217,23 @@ class CommonAPI:
             return path / branch_info
         return path
 
+    def get_active_branch(self, path):
+        mfs_branch = self.get_mfs_path(
+            path, repo_info='active_branch_name')
+        branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
+        return branch
+
+    def set_active_branch(self, path, branch):
+        active_branch_path = self.get_mfs_path(
+            path, repo_info='active_branch_name')
+        self.ipfs.files_write(
+            active_branch_path, io.BytesIO(branch.encode('utf-8')), create=True, truncate=True)
+        self.invalidate_cache()
+
     @property
     @cached_property
     def active_branch(self):
         return self.get_active_branch(self.fs_repo_root)
-
-    def get_active_branch(self, fs_repo_root):
-        mfs_branch = self.get_mfs_path(
-            fs_repo_root, repo_info='active_branch_name')
-        branch = self.ipfs.files_read(mfs_branch).decode('utf-8')
-        return branch
 
     def repo_branches(self, fs_repo_root):
         mfs_branches_path = self.get_mfs_path(
@@ -239,17 +246,18 @@ class CommonAPI:
     def branches(self):
         return self.repo_branches(self.fs_repo_root)
 
-    def list_repo_paths(self, fs_cwd=None):
-        fs_cwd = fs_cwd or self.fs_cwd
+    def list_repos(self):
+        """ Lists (name, hash, path) for all repos in IPVC """
         try:
-            repos_mfs_path = self.get_mfs_path(ipvc_info='repos')
-            ls = self.ipfs.files_ls(repos_mfs_path)
+            mfs_repos_path = self.get_mfs_path(ipvc_info='repos')
+            ls = self.ipfs.files_ls(mfs_repos_path)
             for entry in ls['Entries'] or []:
                 repo_hex = entry['Name']
                 fs_repo_path = bytes.fromhex(repo_hex).decode('utf-8')
-                repo_mfs_path = Path(repos_mfs_path) / repo_hex
-                repo_hash = self.ipfs.files_stat(repo_mfs_path)['Hash']
-                yield repo_hash, fs_repo_path
+                mfs_repo_path = Path(mfs_repos_path) / repo_hex
+                repo_hash = self.ipfs.files_stat(mfs_repo_path)['Hash']
+                repo_name = self.get_repo_name(mfs_repo_path)
+                yield repo_name, repo_hash, fs_repo_path
         except ipfsapi.exceptions.StatusError:
             return
 
@@ -264,7 +272,7 @@ class CommonAPI:
 
     def get_repo_root(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
-        for _, fs_repo_path in self.list_repo_paths(fs_cwd):
+        for _, _, fs_repo_path in self.list_repos():
             repo_parts = Path(fs_repo_path).parts
             if fs_cwd.parts[:len(repo_parts)] == repo_parts:
                 return Path(fs_repo_path)
@@ -622,15 +630,21 @@ class CommonAPI:
         short_desc, *rest = msg.split('\n')
         return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)
 
+    def set_repo_id(self, path, key):
+        mfs_id_path = self.get_mfs_path(path, repo_info='id')
+        self.ipfs.files_write(mfs_id_path, io.BytesIO(key.encode('utf-8')),
+                              create=True, truncate=True)
+        self.invalidate_cache(['repo_id', 'ids'])
+
     @property
     @cached_property
     def repo_id(self):
-        id_path = self.get_mfs_path(self.fs_repo_root, repo_info='id')
+        mfs_id_path = self.get_mfs_path(self.fs_repo_root, repo_info='id')
         try:
-            return self.ipfs.files_read(id_path).decode('utf-8')
+            return self.ipfs.files_read(mfs_id_path).decode('utf-8')
         except ipfsapi.exceptions.StatusError:
             # Write 'self' as default (the key that always comes with an go-ipfs node
-            self.ipfs.files_write(id_path, io.BytesIO(b'self'),
+            self.ipfs.files_write(mfs_id_path, io.BytesIO(b'self'),
                                   create=True, truncate=True)
             return 'self'
 
@@ -735,11 +749,20 @@ class CommonAPI:
 
         self.ipfs.files_cp(mfs_head, mfs_pub_branch)
 
-    @property
-    @cached_property
-    def repo_name(self):
-        mfs_repo_namepath = self.get_mfs_path(self.fs_repo_root, repo_info='name')
+    def get_repo_name(self, path):
+        mfs_repo_namepath = self.get_mfs_path(path, repo_info='name')
         try:
             return self.ipfs.files_read(mfs_repo_namepath).decode('utf-8')
         except ipfsapi.exceptions.StatusError:
             return None
+
+    def set_repo_name(self, path, name):
+        mfs_repo_namepath = self.get_mfs_path(path, repo_info='name')
+        self.ipfs.files_write(mfs_repo_namepath, io.BytesIO(name.encode('utf-8')),
+                              create=True, truncate=True)
+        self.invalidate_cache(['repo_name'])
+
+    @property
+    @cached_property
+    def repo_name(self):
+        return self.get_repo_name(self.fs_repo_root)

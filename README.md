@@ -105,7 +105,7 @@ NOTE: usage is incomplete as many important commands are not yet implemented
 ## Commands and Examples
 Note: commands not yet implemented are "commented" out
 
-* `ipvc repo init`
+* `ipvc repo init [<name>]`
 * `ipvc repo mv <path1> [<path2>]`
 * `ipvc repo # alias for ls`
 * `ipvc repo rm [<path>]`

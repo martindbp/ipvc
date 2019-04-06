@@ -38,14 +38,14 @@ class IdAPI(CommonAPI):
         """
         Creates new IPFS key for a IPVC id
         """
-        fs_repo_root, _ = self.common()
+        self.common()
         self.print(f'Generating key with name "{key}"')
         all_ids = self.all_ipfs_ids()
         if key in all_ids:
             self.print_err('Key by that name already exists')
             if use:
                 self.print('Using the id for this repo')
-                self.ipvc.repo.id(key)
+                self.set_repo_id(self.fs_repo_root, key)
             return
 
         try:
@@ -56,7 +56,7 @@ class IdAPI(CommonAPI):
                         '[--img ...] [--link ...]`'))
             if use:
                 self.print('Using the id for this repo')
-                self.ipvc.repo.id(key)
+                self.set_repo_id(self.fs_repo_root, key)
             else:
                 self.print(f'To set this id for a repo, use `ipvc repo id {key}`')
         except:

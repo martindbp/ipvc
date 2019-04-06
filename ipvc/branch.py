@@ -31,7 +31,7 @@ class BranchAPI(CommonAPI):
 
 
         try:
-            self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
+            self.ipfs.files_stat(self.get_mfs_path(self.fs_repo_root, name))
             self.print_err('Branch name already exists')
             raise RuntimeError()
         except ipfsapi.exceptions.StatusError:
@@ -40,22 +40,22 @@ class BranchAPI(CommonAPI):
         if from_commit == "@head":
             # Simply copy the current branch to the new branch
             self.ipfs.files_cp(
-                self.get_mfs_path(self.fs_cwd, self.active_branch),
-                self.get_mfs_path(self.fs_cwd, name))
+                self.get_mfs_path(self.fs_repo_root, self.active_branch),
+                self.get_mfs_path(self.fs_repo_root, name))
             self.invalidate_cache(['branches'])
         else:
             # Create the branch directory along with an empty stage and workspace
             for ref in ['stage', 'workspace']:
-                mfs_ref = self.get_mfs_path(self.fs_cwd, name, branch_info=f'{ref}/data/')
+                mfs_ref = self.get_mfs_path(self.fs_repo_root, name, branch_info=f'{ref}/data/')
                 self.ipfs.files_mkdir(mfs_ref, parents=True)
             self.invalidate_cache(['branches'])
 
             # Copy the commit to the new branch's head
             _, commit_path = expand_ref(from_commit)
             mfs_commit_path = self.get_mfs_path(
-                self.fs_cwd, self.active_branch, branch_info=commit_path)
+                self.fs_repo_root, self.active_branch, branch_info=commit_path)
             mfs_head_path = self.get_mfs_path(
-                self.fs_cwd, name, branch_info='head')
+                self.fs_repo_root, name, branch_info='head')
 
             try:
                 self.ipfs.files_stat(mfs_commit_path)
@@ -68,9 +68,9 @@ class BranchAPI(CommonAPI):
             # Copy commit bundle to workspace and stage
             mfs_commit_bundle_path = f'{mfs_commit_path}/data/bundle'
             mfs_workspace_path = self.get_mfs_path(
-                self.fs_cwd, name, branch_info='workspace/data/bundle')
+                self.fs_repo_root, name, branch_info='workspace/data/bundle')
             mfs_stage_path = self.get_mfs_path(
-                self.fs_cwd, name, branch_info='stage/data/bundle')
+                self.fs_repo_root, name, branch_info='stage/data/bundle')
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_workspace_path)
             self.ipfs.files_cp(mfs_commit_bundle_path, mfs_stage_path)
 
@@ -107,19 +107,14 @@ class BranchAPI(CommonAPI):
         self.common()
 
         try:
-            self.ipfs.files_stat(self.get_mfs_path(self.fs_cwd, name))
+            self.ipfs.files_stat(self.get_mfs_path(self.fs_repo_root, name))
         except ipfsapi.exceptions.StatusError:
             self.print_err('No branch by that name exists')
             raise RuntimeError()
 
         # Write the new branch name to active_branch_name
         # NOTE: truncate here is needed to clear the file before writing
-        self.ipfs.files_write(
-            self.get_mfs_path(self.fs_cwd, repo_info='active_branch_name'),
-            io.BytesIO(bytes(name, 'utf-8')),
-            create=True, truncate=True)
-        self.invalidate_cache(['active_branch'])
-
+        self.set_active_branch(self.fs_repo_root, name)
         self._load_ref_into_repo(
             self.fs_repo_root, name, 'workspace', without_timestamps)
 
@@ -773,5 +768,3 @@ class BranchAPI(CommonAPI):
     @atomic
     def mv(self):
         self.invalidate_cache(['branches', 'active_branch'])
-
-
