@@ -165,13 +165,6 @@ class RepoAPI(CommonAPI):
         data = self.ids['local'][self.repo_id]
         self.print(f'Publishing repo with name "{self.repo_name}" to {peer_id}')
 
-        mfs_repo_path = self.get_mfs_path(
-            ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}')
-        try:
-            self.ipfs.files_rm(mfs_repo_path, recursive=True)
-        except ipfsapi.exceptions.StatusError:
-            pass
-
         changed = False
         for branch in self.branches:
             changed = changed or self.prepare_publish_branch(

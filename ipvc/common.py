@@ -731,13 +731,19 @@ class CommonAPI:
         self.print('Publishing done')
 
     def prepare_publish_branch(self, key, branch, name):
-        """ Copy branch to the publish folder """
+        """
+        Copy branch to the publish folder. Returns True if branch
+        changed since last it was published
+        """
         mfs_head = self.get_mfs_path(
             self.fs_repo_root, branch, branch_info='head')
+        new_hash = self.ipfs.files_stat(mfs_head)['Hash']
 
         mfs_pub_branch = self.get_mfs_path(
             ipvc_info=f'published/{key}/repos/{name}/{branch}')
+        old_hash = None
         try:
+            old_hash = self.ipfs.files_stat(mfs_pub_branch)['Hash']
             self.ipfs.files_rm(mfs_pub_branch, recursive=True)
         except ipfsapi.exceptions.StatusError:
             pass
@@ -748,6 +754,7 @@ class CommonAPI:
             pass
 
         self.ipfs.files_cp(mfs_head, mfs_pub_branch)
+        return new_hash != old_hash
 
     def get_repo_name(self, path):
         mfs_repo_namepath = self.get_mfs_path(path, repo_info='name')
