@@ -223,6 +223,8 @@ def main():
     branch_publish_parser.add_argument('branch', nargs='?', help='The branch to publish', default=None)
     branch_publish_parser.add_argument(
         '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
+    branch_publish_parser.add_argument(
+        'branch', nargs='?', help='Branch to publish')
 
     branch_unpublish_parser = branch_subparsers.add_parser(
         'unpublish', description='Publish branch to IPNS')
@@ -230,6 +232,8 @@ def main():
     branch_unpublish_parser.add_argument('branch', nargs='?', help='The branch to unpublish', default=None)
     branch_unpublish_parser.add_argument(
         '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
+    branch_unpublish_parser.add_argument(
+        'branch', nargs='?', help='Branch to unpublish')
 
 
     # ------------- STAGE --------------
