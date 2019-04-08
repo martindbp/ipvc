@@ -1,0 +1,4 @@
+Publishing repo with name "my_repo" to Qm******************************************** with lifetime 8760h
+This might take several minutes
+Running your local IPFS deamon with the option --enable-namesys-pubsub might speed up the propagation
+Publishing done

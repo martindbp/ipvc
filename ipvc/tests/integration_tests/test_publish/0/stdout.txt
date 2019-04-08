@@ -1,0 +1,5 @@
+Initializing unnamed repository
+You can use `ipvc repo name <name>` to set name at a later time
+Getting ipfs repo info (this can be slow...)
+Reading workspace files
+Successfully created repository

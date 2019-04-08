@@ -1,0 +1,11 @@
+Publishing identity to IPNS:
+  PeerID: Qm********************************************
+  Name: Bob
+  Email: Not set
+  Description: Not set
+  Img: Not set
+  Link: Not set
+
+This might take several minutes
+Running your local IPFS deamon with the option --enable-namesys-pubsub might speed up the propagation
+Publishing done
