@@ -131,8 +131,8 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch rewrite # analagous to git rebase -i`
 * `//ipvc branch fetch # download the latest remote of this branch`
 * `//ipvc branch pull # fetch and merge`
-* `//ipvc branch publish [--repo-name <name>] [<branch>] # publish branch to IPNS`
-* `//ipvc branch unpublish`
+* `ipvc branch publish [<branch>] # publish branch to IPNS`
+* `ipvc branch unpublish`
 * `ipvc stage # status`
 * `ipvc stage add <path>`
 * `ipvc stage remove <path>`
