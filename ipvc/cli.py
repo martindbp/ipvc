@@ -217,6 +217,21 @@ def main():
     branch_replay_parser.add_argument(
         'their_branch', nargs='?', help='the name of their branch')
 
+    branch_publish_parser = branch_subparsers.add_parser(
+        'publish', description='Publish branch to IPNS')
+    branch_publish_parser.set_defaults(subcommand='publish')
+    branch_publish_parser.add_argument('branch', nargs='?', help='The branch to publish', default=None)
+    branch_publish_parser.add_argument(
+        '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
+
+    branch_unpublish_parser = branch_subparsers.add_parser(
+        'unpublish', description='Publish branch to IPNS')
+    branch_unpublish_parser.set_defaults(subcommand='unpublish')
+    branch_unpublish_parser.add_argument('branch', nargs='?', help='The branch to unpublish', default=None)
+    branch_unpublish_parser.add_argument(
+        '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
+
+
     # ------------- STAGE --------------
     stage_parser = subparsers.add_parser(
         'stage', description='Add/remove changes to stage and handle commits')

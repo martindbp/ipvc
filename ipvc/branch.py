@@ -768,3 +768,48 @@ class BranchAPI(CommonAPI):
     @atomic
     def mv(self):
         self.invalidate_cache(['branches', 'active_branch'])
+
+    @atomic
+    def publish(self, branch=None, lifetime='8760h'):
+        """ Publish repo with a name to IPNS """
+        self.common()
+        branch = branch or self.active_branch
+
+        if self.repo_name is None:
+            self.print_err(('This repo has no name, set one with '
+                           '`ipvc repo name <name>` and publish again'))
+            raise RuntimeError()
+
+        peer_id = self.id_peer_keys(self.repo_id)['peer_id']
+        data = self.ids['local'][self.repo_id]
+
+        changed = self.prepare_publish_branch(self.repo_id, branch, self.repo_name)
+        if not changed:
+            self.print("The branch hasn't changed since last published")
+            return
+
+        self.print((f'Publishing {self.repo_name}/{branch} to {peer_id} '
+                    f'with lifetime {lifetime}'))
+        self.publish_ipns(self.repo_id, lifetime)
+
+    @atomic
+    def unpublish(self, branch=None, lifetime='8760h'):
+        self.common()
+        branch = branch or self.active_branch
+
+        if self.repo_name is None:
+            self.print_err('This branch/repo has not been published')
+            raise RuntimeError()
+
+        peer_id = self.id_peer_keys(self.repo_id)['peer_id']
+        data = self.ids['local'][self.repo_id]
+        mfs_pub_branch = self.get_mfs_path(
+            ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}/{branch}')
+        try:
+            self.ipfs.files_rm(mfs_pub_branch, recursive=True)
+        except ipfsapi.exceptions.StatusError:
+            self.print_err('This branch/repo has not been published')
+            raise RuntimeError()
+
+        self.print(f'Updating IPNS entry for {peer_id} with lifetime {lifetime}')
+        self.publish_ipns(self.repo_id, lifetime)

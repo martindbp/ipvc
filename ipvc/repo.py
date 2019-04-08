@@ -163,7 +163,6 @@ class RepoAPI(CommonAPI):
 
         peer_id = self.id_peer_keys(self.repo_id)['peer_id']
         data = self.ids['local'][self.repo_id]
-        self.print(f'Publishing repo with name "{self.repo_name}" to {peer_id}')
 
         changed = False
         for branch in self.branches:
@@ -174,6 +173,8 @@ class RepoAPI(CommonAPI):
             self.print('None of the branches changed since last published')
             return
 
+        self.print((f'Publishing repo with name "{self.repo_name}" to '
+                    f'{peer_id} with lifetime {lifetime}'))
         self.publish_ipns(self.repo_id, lifetime)
 
     @atomic
@@ -194,7 +195,7 @@ class RepoAPI(CommonAPI):
             self.print_err('This repo has not been published')
             raise RuntimeError()
 
-        self.print(f'Updating IPNS entry for {peer_id}')
+        self.print(f'Updating IPNS entry for {peer_id} with lifetime {lifetime}')
         self.publish_ipns(self.repo_id, lifetime)
 
     def remote(self, peer_id, repo_name):
