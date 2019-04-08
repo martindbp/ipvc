@@ -286,7 +286,7 @@ def main():
     delete_mfs = kwargs.pop('delete_mfs')
     ipfs_ip = kwargs.pop('ipfs_ip')
     mfs_namespace = kwargs.pop('mfs_namespace')
-    cwd = kwargs.pop('cwd') # Overwrite cwd with supplied path
+    cwd = kwargs.pop('cwd') or cwd # Overwrite cwd with supplied path
     record_dir = kwargs.pop('record')
 
     n_path = None
