@@ -330,16 +330,19 @@ def main():
     if args.profile:
         cProfile.run('route(**kwargs)')
     else:
-        try:
-            route(**kwargs)
-        except RuntimeError:
-            exit(1)
-        except:
+        def _cleanup():
             if stdout_file is not None:
                 stdout_file.close()
                 stderr_file.close()
             if n_path:
                 shutil.rmtree(n_path)
+        try:
+            route(**kwargs)
+        except RuntimeError:
+            _clean_up()
+            exit(1)
+        except:
+            _clean_up()
             raise
 
     if record_dir is not None:
