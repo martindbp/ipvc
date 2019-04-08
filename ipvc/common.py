@@ -656,7 +656,7 @@ class CommonAPI:
             return json.loads(self.ipfs.files_read(mfs_ids_path).decode('utf-8'))
         except ipfsapi.exceptions.StatusError:
             # Write empty json
-            ids = {'local': {}, 'remote': {}}
+            ids = {'local': {'self': {}}, 'remote': {}}
             self.ipfs.files_write(
                 mfs_ids_path, io.BytesIO(json.dumps(ids).encode('utf-8')),
                 create=True, truncate=True)
