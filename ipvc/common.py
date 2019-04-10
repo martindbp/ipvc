@@ -663,7 +663,7 @@ class CommonAPI:
             return ids
 
     def all_ipfs_ids(self):
-        mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
+        mfs_ipfs_repo_path = self.get_mfs_path(self.fs_repo_root, repo_info='ipfs_repo_path')
         fs_ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
         keys = ['self']
         for path in (Path(fs_ipfs_repo_path) / 'keystore').glob('*'):
@@ -671,7 +671,7 @@ class CommonAPI:
         return keys
 
     def id_peer_keys(self, key_name):
-        mfs_ipfs_repo_path = self.get_mfs_path(self.get_repo_root(), repo_info='ipfs_repo_path')
+        mfs_ipfs_repo_path = self.get_mfs_path(self.fs_repo_root, repo_info='ipfs_repo_path')
         fs_ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
 
         priv_key_protobuf = None
