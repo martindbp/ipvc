@@ -692,11 +692,15 @@ class CommonAPI:
                     peer_id = key['Id']
                     break
 
-        private_key_pem = deserialize_pk_protobuf(
-            priv_key_protobuf, 'crypto.pb.PrivateKey').Data
-        rsa_priv_key = RSA.importKey(private_key_pem)
-        rsa_pub_key = rsa_priv_key.publickey()
-        public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
+        try:
+            private_key_pem = deserialize_pk_protobuf(
+                priv_key_protobuf, 'crypto.pb.PrivateKey').Data
+            rsa_priv_key = RSA.importKey(private_key_pem)
+            rsa_pub_key = rsa_priv_key.publickey()
+            public_key_pem = rsa_pub_key.exportKey('PEM').decode('utf-8')
+        except:
+            self.print_err(f'Failure trying to use key "{key}" as an RSA key')
+            raise RuntimeError()
 
         return {
             'peer_id': peer_id,
