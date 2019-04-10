@@ -14,9 +14,8 @@ class RepoAPI(CommonAPI):
         """
         Lists all the repositories on the connected ipfs node MFS
         """
-        repos = list(self.list_repos())
         self.print('Found repositories at:')
-        for name, h, path in repos:
+        for name, h, path in self.repos:
             if name is None:
                 self.print(f'{h}: {path}')
             else:

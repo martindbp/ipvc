@@ -246,7 +246,9 @@ class CommonAPI:
     def branches(self):
         return self.repo_branches(self.fs_repo_root)
 
-    def list_repos(self):
+    @property
+    @cached_property
+    def repos(self):
         """ Lists (name, hash, path) for all repos in IPVC """
         try:
             mfs_repos_path = self.get_mfs_path(ipvc_info='repos')
@@ -272,7 +274,7 @@ class CommonAPI:
 
     def get_repo_root(self, fs_cwd=None):
         fs_cwd = fs_cwd or self.fs_cwd
-        for _, _, fs_repo_path in self.list_repos():
+        for _, _, fs_repo_path in self.repos:
             repo_parts = Path(fs_repo_path).parts
             if fs_cwd.parts[:len(repo_parts)] == repo_parts:
                 return Path(fs_repo_path)
