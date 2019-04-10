@@ -107,7 +107,7 @@ class IdAPI(CommonAPI):
 
         if key is None: key = self.repo_id
         peer_id = self.id_peer_keys(key)['peer_id']
-        data = self.ids['local'][key]
+        data = self.ids['local'].get(key, {})
         self.print(f'Publishing identity to IPNS:')
         self.print_id(peer_id, data, '  ')
         self.print('')

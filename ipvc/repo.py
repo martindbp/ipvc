@@ -162,7 +162,7 @@ class RepoAPI(CommonAPI):
             raise RuntimeError()
 
         peer_id = self.id_peer_keys(self.repo_id)['peer_id']
-        data = self.ids['local'][self.repo_id]
+        data = self.ids['local'].get(self.repo_id, {})
 
         changed = False
         for branch in self.branches:
@@ -186,7 +186,7 @@ class RepoAPI(CommonAPI):
             raise RuntimeError()
 
         peer_id = self.id_peer_keys(self.repo_id)['peer_id']
-        data = self.ids['local'][self.repo_id]
+        data = self.ids['local'].get(self.repo_id, {})
         mfs_repo_path = self.get_mfs_path(
             ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}')
         try:

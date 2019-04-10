@@ -781,7 +781,7 @@ class BranchAPI(CommonAPI):
             raise RuntimeError()
 
         peer_id = self.id_peer_keys(self.repo_id)['peer_id']
-        data = self.ids['local'][self.repo_id]
+        data = self.ids['local'].get(self.repo_id, {})
 
         changed = self.prepare_publish_branch(self.repo_id, branch, self.repo_name)
         if not changed:
@@ -802,7 +802,7 @@ class BranchAPI(CommonAPI):
             raise RuntimeError()
 
         peer_id = self.id_peer_keys(self.repo_id)['peer_id']
-        data = self.ids['local'][self.repo_id]
+        data = self.ids['local'].get(self.repo_id, {})
         mfs_pub_branch = self.get_mfs_path(
             ipvc_info=f'published/{self.repo_id}/repos/{self.repo_name}/{branch}')
         try:
