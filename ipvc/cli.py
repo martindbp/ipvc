@@ -334,7 +334,7 @@ def main():
     if args.profile:
         cProfile.run('route(**kwargs)')
     else:
-        def _cleanup():
+        def _clean_up():
             if stdout_file is not None:
                 stdout_file.close()
                 stderr_file.close()
