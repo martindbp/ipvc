@@ -763,15 +763,15 @@ class CommonAPI:
         return new_hash != old_hash
 
     def get_repo_name(self, path):
-        mfs_repo_namepath = self.get_mfs_path(path, repo_info='name')
+        mfs_repo_name = self.get_mfs_path(path, repo_info='name')
         try:
-            return self.ipfs.files_read(mfs_repo_namepath).decode('utf-8')
+            return self.ipfs.files_read(mfs_repo_name).decode('utf-8')
         except ipfsapi.exceptions.StatusError:
             return None
 
     def set_repo_name(self, path, name):
-        mfs_repo_namepath = self.get_mfs_path(path, repo_info='name')
-        self.ipfs.files_write(mfs_repo_namepath, io.BytesIO(name.encode('utf-8')),
+        mfs_repo_name = self.get_mfs_path(path, repo_info='name')
+        self.ipfs.files_write(mfs_repo_name, io.BytesIO(name.encode('utf-8')),
                               create=True, truncate=True)
         self.invalidate_cache(['repo_name'])
 
