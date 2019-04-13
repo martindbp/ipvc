@@ -77,30 +77,6 @@ class BranchAPI(CommonAPI):
         if not no_checkout:
             self.checkout(name)
 
-    def _load_ref_into_repo(self, fs_repo_root, branch, ref,
-                            without_timestamps=False):
-        """ Syncs the fs workspace with the files in ref """
-        files_metadata = self.read_files_metadata(ref)
-        added, removed, modified = self.workspace_changes(
-            fs_repo_root, fs_repo_root, files_metadata, update_meta=False)
-
-        _, mfs_refpath, _ = self.refpath_to_mfs(Path(f'@{ref}'))
-
-        for path in added:
-            os.remove(fs_repo_root / path)
-
-        for path in removed | modified:
-            mfs_path = self.get_mfs_path(
-                fs_repo_root, branch,
-                branch_info=(mfs_refpath / path))
-
-            timestamp = files_metadata[str(path)]['timestamp']
-
-            with open(fs_repo_root / path, 'wb') as f:
-                f.write(self.ipfs.files_read(mfs_path))
-
-            os.utime(fs_repo_root / path, ns=(timestamp, timestamp))
-
     @atomic
     def checkout(self, name, without_timestamps=False):
         """ Checks out a branch"""
@@ -112,8 +88,6 @@ class BranchAPI(CommonAPI):
             self.print_err('No branch by that name exists')
             raise RuntimeError()
 
-        # Write the new branch name to active_branch_name
-        # NOTE: truncate here is needed to clear the file before writing
         self.set_active_branch(self.fs_repo_root, name)
         self._load_ref_into_repo(
             self.fs_repo_root, name, 'workspace', without_timestamps)

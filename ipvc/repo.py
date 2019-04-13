@@ -20,7 +20,7 @@ class RepoAPI(CommonAPI):
                 self.print(f'{h}: {path}')
             else:
                 self.print(f'{name} {h}: {path}')
-        return repos
+        return self.repos
 
     @atomic
     def init(self, name=None):
@@ -52,7 +52,7 @@ class RepoAPI(CommonAPI):
             self.print('You can use `ipvc repo name <name>` to set name at a later time')
         else:
             self.print(f'Initializing repository with name "{name}"')
-            self.set_repo_name(fs_cwd, name)
+            self.set_repo_name(self.fs_cwd, name)
 
         # Store the active branch name in 'active_branch_name'
         self.set_active_branch(self.fs_cwd, 'master')
@@ -70,9 +70,10 @@ class RepoAPI(CommonAPI):
             create=True, truncate=True)
 
         self.print('Reading workspace files')
-        self.update_mfs_repo()
+        self.add_fs_to_mfs(self.fs_repo_root, 'workspace')
 
         self.print(f'Successfully created repository')
+        self.invalidate_cache()
         return True
 
     @atomic
@@ -106,7 +107,7 @@ class RepoAPI(CommonAPI):
         return True
 
     @atomic
-    def rm(self, path):
+    def rm(self, path=None):
         """ Remove a repository at a given path"""
         fs_repo_root = self.get_repo_root(path)
 
@@ -128,7 +129,7 @@ class RepoAPI(CommonAPI):
     def id(self, key=None):
         """ Get/Set the ID to use for this repo """
         self.common()
-        if key is not None and key not in self.all_ipfs_ids():
+        if key is not None and key not in self.ipfs_keys():
             self.print_err('No such key')
             self.print_err('Run `ipvc id` to list available keys')
             raise RuntimeError()
@@ -197,5 +198,88 @@ class RepoAPI(CommonAPI):
         self.print(f'Updating IPNS entry for {peer_id} with lifetime {lifetime}')
         self.publish_ipns(self.repo_id, lifetime)
 
+    @atomic
     def remote(self, peer_id, repo_name):
        pass
+
+    @atomic
+    def clone(self, remote, as_name=None):
+        if self.fs_repo_root is not None:
+            self.print_err('There is already a repo here')
+            raise RuntimeError()
+
+        try:
+            peer_id, peer_repo = remote.split('/')
+        except:
+            self.print_err('Remote must be on the format "{PeerID}/{repository}')
+            raise RuntimeError()
+        repo_name = as_name or peer_repo
+
+        if repo_name in self.repos:
+            self.print_err(f'You already have a local repo by the name {repo_name}')
+            self.print_err(('To clone by a different name, supply it with the '
+                           'argument --as-name <name>'))
+            raise RuntimeError()
+
+        self.print(f'Resolving name: {peer_id}')
+        ipfs_path = None
+        try:
+            ret = self.ipfs.name_resolve(peer_id)
+            ipfs_path = ret['Path']
+        except ipfsapi.exceptions.StatusError:
+            self.print_err('Could not resolve')
+            raise RuntimeError()
+
+        self.print(f'Resolved name to {ipfs_path}')
+        self.print('Confirming repository presence')
+        ipfs_repos_path = f'{ipfs_path}/repos'
+        ipfs_repo_path = f'{ipfs_repos_path}/{repo_name}'
+        try:
+            remote_repos = self.ipfs.ls(ipfs_repos_path)
+            remote_repos = [l['Name'] for l in remote_repos['Objects'][0]['Links']]
+        except ipfsapi.exceptions.StatusError:
+            self.print_err('Remote IPNS has no {PeerID}/ipvc/repos directory')
+            raise RuntimeError()
+
+        try:
+            self.ipfs.ls(ipfs_repo_path)
+        except ipfsapi.exceptions.StatusError:
+            self.print_err(f'Remote has no repo by that name')
+            self.print_err(f'Available repos:')
+            self.print_err('\n'.join(remote_repos))
+            raise RuntimeError()
+
+        repo_hash = self.ipfs.files_stat(ipfs_repo_path)['Hash']
+
+        self.print('Downloading/pinning repo. This might take a while, and there is no '
+                   'completion information')
+        self.ipfs.pin_add(repo_hash)
+        self.print('Download complete, checking out to workspace')
+
+        # Copy repo hash to our mfs repos dir
+        mfs_repo_path = self.get_mfs_path(self.fs_cwd)
+        try:
+            self.ipfs.files_mkdir(mfs_repo_path, parents=True)
+        except ipfsapi.exceptions.StatusError:
+            pass
+        mfs_repo_branches_path = self.get_mfs_path(self.fs_cwd, repo_info='branches')
+        for branch_head in self.ipfs.ls(repo_hash)['Objects'][0]['Links']:
+            bname = branch_head['Name']
+            self.ipfs.files_mkdir(f'{mfs_repo_branches_path}/{bname}', parents=True)
+            self.ipfs.files_cp(f'/ipfs/{repo_hash}/{bname}',
+                               f'{mfs_repo_branches_path}/{bname}/head')
+
+        self.invalidate_cache()
+
+        # Set the repo name, remote and active branch
+        self.set_repo_name(self.fs_repo_root, repo_name)
+        self.set_repo_remotes(self.fs_repo_root, remote)
+
+        if len(self.branches) == 0:
+            self.print('Cloned repository has no branches')
+            return
+
+        branch = 'master' if 'master' in self.branches else self.branches[0]
+
+        self.set_active_branch(self.fs_repo_root, branch)
+        self._load_ref_into_repo(self.fs_repo_root, branch, 'head')

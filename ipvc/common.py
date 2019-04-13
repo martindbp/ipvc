@@ -247,9 +247,9 @@ class CommonAPI:
         return self.repo_branches(self.fs_repo_root)
 
     @property
-    @cached_property
     def repos(self):
         """ Lists (name, hash, path) for all repos in IPVC """
+        repos = []
         try:
             mfs_repos_path = self.get_mfs_path(ipvc_info='repos')
             ls = self.ipfs.files_ls(mfs_repos_path)
@@ -258,10 +258,11 @@ class CommonAPI:
                 fs_repo_path = bytes.fromhex(repo_hex).decode('utf-8')
                 mfs_repo_path = Path(mfs_repos_path) / repo_hex
                 repo_hash = self.ipfs.files_stat(mfs_repo_path)['Hash']
-                repo_name = self.get_repo_name(mfs_repo_path)
-                yield repo_name, repo_hash, fs_repo_path
+                repo_name = self.get_repo_name(fs_repo_path)
+                repos.append((repo_name, repo_hash, fs_repo_path))
+            return repos
         except ipfsapi.exceptions.StatusError:
-            return
+            return []
 
     def set_cwd(self, cwd):
         self.fs_cwd = cwd
@@ -504,16 +505,36 @@ class CommonAPI:
 
         return changes
 
-    def update_mfs_repo(self):
-        return self.add_fs_to_mfs(
-            self.fs_repo_root, 'workspace')
+    def _load_ref_into_repo(self, fs_repo_root, branch, ref,
+                            without_timestamps=False):
+        """ Syncs the fs workspace with the files in ref """
+        files_metadata = self.read_files_metadata(ref)
+        added, removed, modified = self.workspace_changes(
+            fs_repo_root, fs_repo_root, files_metadata, update_meta=False)
+
+        _, mfs_refpath, _ = self.refpath_to_mfs(Path(f'@{ref}'))
+
+        for path in added:
+            os.remove(fs_repo_root / path)
+
+        for path in removed | modified:
+            mfs_path = self.get_mfs_path(
+                fs_repo_root, branch,
+                branch_info=(mfs_refpath / path))
+
+            timestamp = files_metadata[str(path)]['timestamp']
+
+            with open(fs_repo_root / path, 'wb') as f:
+                f.write(self.ipfs.files_read(mfs_path))
+
+            os.utime(fs_repo_root / path, ns=(timestamp, timestamp))
 
     def common(self):
         if self.fs_repo_root is None:
             self.print_err('No ipvc repository here')
             raise RuntimeError()
 
-        self.update_mfs_repo()
+        self.add_fs_to_mfs(self.fs_repo_root, 'workspace')
         return self.fs_repo_root, self.active_branch
 
     def get_refpath_files_hash(self, refpath):
@@ -632,8 +653,8 @@ class CommonAPI:
         short_desc, *rest = msg.split('\n')
         return short_desc, '\n'.join(l for l in rest if len(l.strip()) > 0)
 
-    def set_repo_id(self, path, key):
-        mfs_id_path = self.get_mfs_path(path, repo_info='id')
+    def set_repo_id(self, repo_path, key):
+        mfs_id_path = self.get_mfs_path(repo_path, repo_info='id')
         self.ipfs.files_write(mfs_id_path, io.BytesIO(key.encode('utf-8')),
                               create=True, truncate=True)
         self.invalidate_cache(['repo_id', 'ids'])
@@ -664,13 +685,8 @@ class CommonAPI:
                 create=True, truncate=True)
             return ids
 
-    def all_ipfs_ids(self):
-        mfs_ipfs_repo_path = self.get_mfs_path(self.fs_repo_root, repo_info='ipfs_repo_path')
-        fs_ipfs_repo_path = self.ipfs.files_read(mfs_ipfs_repo_path).decode('utf-8')
-        keys = ['self']
-        for path in (Path(fs_ipfs_repo_path) / 'keystore').glob('*'):
-            keys.append(os.path.basename(path))
-        return keys
+    def ipfs_keys(self):
+        return {k['Name']: k['Id'] for k in self.ipfs.key_list()['Keys']}
 
     def id_peer_keys(self, key_name):
         mfs_ipfs_repo_path = self.get_mfs_path(self.fs_repo_root, repo_info='ipfs_repo_path')
@@ -762,15 +778,15 @@ class CommonAPI:
         self.ipfs.files_cp(mfs_head, mfs_pub_branch)
         return new_hash != old_hash
 
-    def get_repo_name(self, path):
-        mfs_repo_name = self.get_mfs_path(path, repo_info='name')
+    def get_repo_name(self, repo_path):
+        mfs_repo_name = self.get_mfs_path(repo_path, repo_info='name')
         try:
             return self.ipfs.files_read(mfs_repo_name).decode('utf-8')
         except ipfsapi.exceptions.StatusError:
             return None
 
-    def set_repo_name(self, path, name):
-        mfs_repo_name = self.get_mfs_path(path, repo_info='name')
+    def set_repo_name(self, repo_path, name):
+        mfs_repo_name = self.get_mfs_path(repo_path, repo_info='name')
         self.ipfs.files_write(mfs_repo_name, io.BytesIO(name.encode('utf-8')),
                               create=True, truncate=True)
         self.invalidate_cache(['repo_name'])
@@ -779,3 +795,37 @@ class CommonAPI:
     @cached_property
     def repo_name(self):
         return self.get_repo_name(self.fs_repo_root)
+
+    @property
+    @cached_property
+    def repo_remotes(self):
+        return self.get_repo_remotes(self.fs_repo_root)
+
+    @property
+    @cached_property
+    def branch_remote(self):
+        return self.get_branch_remote(self.fs_repo_root, self.active_branch)
+
+    def set_repo_remotes(self, repo_path, remote):
+        for branch in self.repo_branches(repo_path):
+            self.set_branch_remote(repo_path, branch, f'{remote}/{branch}')
+
+    def get_repo_remotes(self, repo_path):
+        return {branch: self.get_branch_remote(repo_path, branch)
+                for branch in self.repo_branches(repo_path)}
+
+    def set_branch_remote(self, repo_path, branch, remote):
+        mfs_branch_remote = self.get_mfs_path(
+            repo_path, branch=branch, branch_info='remote')
+        self.ipfs.files_write(
+            mfs_branch_remote, io.BytesIO(remote.encode('utf-8')),
+            create=True, truncate=True)
+        self.invalidate_cache(['repo_remote', 'branch_remote'])
+
+    def get_branch_remote(self, repo_path, branch):
+        mfs_branch_remote = self.get_mfs_path(
+            repo_path, branch=branch, branch_info='remote')
+        try:
+            return self.ipfs.files_read(mfs_branch_remote).decode('utf-8')
+        except ipfsapi.exceptions.StatusError:
+            return None

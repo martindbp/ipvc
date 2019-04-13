@@ -41,10 +41,13 @@ class StageAPI(CommonAPI):
         """
         self.common()
         fs_paths = self.fs_cwd if fs_paths is None else fs_paths
+        if not isinstance(fs_paths, list): fs_paths = [fs_paths]
+
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, self.fs_repo_root):
-            changes = changes + self.add_ref_changes_to_ref(
-                'workspace', 'stage', fs_path_relative)
+        for fs_path in fs_paths:
+            for fs_path_relative in self._get_relative_paths(fs_path, self.fs_repo_root):
+                changes = changes + self.add_ref_changes_to_ref(
+                    'workspace', 'stage', fs_path_relative)
 
         if len(changes) == 0:
             self.print('No changes')
@@ -59,10 +62,13 @@ class StageAPI(CommonAPI):
         the new hash.
         """
         self.common()
+        if not isinstance(fs_paths, list): fs_paths = [fs_paths]
+
         changes = []
-        for fs_path_relative in self._get_relative_paths(fs_paths, self.fs_repo_root):
-            changes = changes + self.add_ref_changes_to_ref(
-                'head', 'stage', fs_path_relative)
+        for fs_path in fs_paths:
+            for fs_path_relative in self._get_relative_paths(fs_path, self.fs_repo_root):
+                changes = changes + self.add_ref_changes_to_ref(
+                    'head', 'stage', fs_path_relative)
 
         if len(changes) == 0:
             self.print('No changes')

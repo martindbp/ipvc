@@ -17,7 +17,7 @@ class IdAPI(CommonAPI):
         List all local and remote ids
         """
         if unused:
-            unused_keys = set(self.all_ipfs_ids()) - set(self.ids['local'])
+            unused_keys = set(self.ipfs_keys()) - set(self.ids['local'])
             if len(unused_keys) > 0:
                 self.print('\n'.join(unused_keys))
                 self.print(('\nNOTE: to create a new IPFS key and id, run '
@@ -40,13 +40,13 @@ class IdAPI(CommonAPI):
         """
         self.common()
         self.print(f'Generating key with name "{key}"')
-        all_ids = self.all_ipfs_ids()
-        if key in all_ids:
+        ipfs_keys = self.ipfs_keys()
+        if key in ipfs_keys:
             self.print_err('Key by that name already exists')
             if use:
                 self.print('Using the id for this repo')
                 self.set_repo_id(self.fs_repo_root, key)
-            return
+            return ipfs_keys[key]
 
         try:
             ret = self.ipfs.key_gen(key, 'rsa', 2048)
@@ -59,6 +59,7 @@ class IdAPI(CommonAPI):
                 self.set_repo_id(self.fs_repo_root, key)
             else:
                 self.print(f'To set this id for a repo, use `ipvc repo id {key}`')
+            return ret['Id']
         except:
             self.print_err('Failed')
             raise RuntimeError()
@@ -80,7 +81,7 @@ class IdAPI(CommonAPI):
         self.common()
 
         if key is None: key = self.repo_id
-        if key not in self.all_ipfs_ids():
+        if key not in self.ipfs_keys():
             self.print_err('There is no such key')
             raise RuntimeError()
 

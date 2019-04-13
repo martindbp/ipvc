@@ -16,7 +16,8 @@ def test_init_and_ls():
     ipvc.repo.init()
     repos = ipvc.repo.ls()
     assert len(repos) == 1
-    assert repos[0][1] == str(cwd)
+    assert repos[0][2] == str(cwd)
+    assert repos[0][0] == None
 
     branch_name = ipvc.ipfs.files_read(
         ipvc.repo.get_mfs_path(cwd, repo_info='active_branch_name')).decode('utf-8')
@@ -30,13 +31,12 @@ def test_init_and_ls():
 
     cwd2 = Path('/somewhere/else')
     ipvc.set_cwd(cwd2)
-    assert ipvc.repo.init() == True
+    assert ipvc.repo.init(name='my_repo') == True
     repos = ipvc.repo.ls()
     assert len(repos) == 2
-    assert repos[0][1] == str(cwd)
-    assert repos[1][1] == str(cwd2)
-    # Both repos should have the same hash, since they're both empty
-    assert repos[0][0] == repos[1][0]
+    assert repos[1][0] == 'my_repo'
+    assert repos[0][2] == str(cwd)
+    assert repos[1][2] == str(cwd2)
 
 
 def test_mv_rm():
@@ -71,3 +71,20 @@ def test_mv_rm():
     except:
         h = None
     assert h is None # should not exist on MFS
+
+
+def test_clone():
+    ipvc = get_environment()
+    ipvc.repo.init(name='myrepo')
+    id1 = ipvc.id.create(key='id1', use=True)
+    test_file = REPO / 'test_file.txt'
+    write_file(test_file, 'hello world')
+    ipvc.stage.add(test_file)
+    ipvc.stage.commit(message='msg')
+    ipvc.repo.publish()
+    ipvc.repo.rm()
+
+    write_file(test_file, 'other text')
+    ipvc.repo.clone(f'{id1}/myrepo')
+    with open(test_file, 'r') as f:
+        assert f.read() == 'hello world'

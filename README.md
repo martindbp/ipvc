@@ -115,8 +115,8 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo name [<name>] # get/set name for repository`
 * `ipvc repo publish # publish the repo to IPNS`
 * `ipvc repo unpublish # unpublish the repo from IPNS`
-* `//ipvc repo clone [--name <name>] <IPFS/IPNS> # clone a repo as name`
-* `//ipvc repo remote [<IPNS>] # show/set remote destination of repo`
+* `//ipvc repo clone [--as-name <name>] <PeerID> <peer-repo> # clone a repo as name`
+* `//ipvc repo remote <PeerID> <peer-repo> # show/set remote destination of repo`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
 * `ipvc branch checkout <name>`
@@ -131,6 +131,7 @@ Note: commands not yet implemented are "commented" out
 * `//ipvc branch rewrite # analagous to git rebase -i`
 * `//ipvc branch fetch # download the latest remote of this branch`
 * `//ipvc branch pull # fetch and merge`
+* `//ipvc branch remote [<PeerID>] [<peer-repo>] [<peer-branch>] # show/set remote destination for branch
 * `ipvc branch publish [<branch>] # publish branch to IPNS`
 * `ipvc branch unpublish`
 * `ipvc stage # status`

@@ -142,6 +142,14 @@ def main():
     repo_unpublish_parser.add_argument(
         '--lifetime', default='8760h', help='Lifetime of the new record, defaults to 1yr')
 
+    repo_clone_parser = repo_subparsers.add_parser(
+        'clone', description='Clone repo from IPNS')
+    repo_clone_parser.set_defaults(subcommand='clone')
+    repo_clone_parser.add_argument(
+        '--as-name', help='Clone repo as name')
+    repo_clone_parser.add_argument(
+        'remote', help='Remote to clone from on the format "{PeerID}/{repository}"')
+
     # ------------- BRANCH --------------
     branch_parser = subparsers.add_parser(
         'branch', description='Handle branches')
