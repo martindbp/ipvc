@@ -8,7 +8,7 @@ IPVC is a distributed version control system similar to git, but built on IPFS (
 * Due to the interaction with the IPFS daemon (and possibly Python), IPVC commands are quite slow, unlike snappy git commands
 
 ## Why IPFS?
-IPFS with its content addressable merkle-dags is the perfect technology for hosting repositories of data as well as commit graphs.
+IPFS with its content addressable Merkle-DAGs is the perfect technology for hosting repositories of data as well as commit graphs.
 
 ### Why not just use git?
 While there is a [git remote helper for ipfs](https://github.com/magik6k/git-remote-ipld) that translates the git file formats to traversable hash links, there is currently no way of getting interoperability for large files since IPFS has a maximum block size of ~4 Mb and git stores files as single blobs. While a workaround may be available in the future we can therefore not currently recreate compatible hashes using ipld.
@@ -115,7 +115,7 @@ Note: commands not yet implemented are "commented" out
 * `ipvc repo name [<name>] # get/set name for repository`
 * `ipvc repo publish # publish the repo to IPNS`
 * `ipvc repo unpublish # unpublish the repo from IPNS`
-* `//ipvc repo clone [--as-name <name>] <PeerID> <peer-repo> # clone a repo as name`
+* `ipvc repo clone [--as-name <name>] <PeerID> <peer-repo> # clone a repo as name`
 * `//ipvc repo remote <PeerID> <peer-repo> # show/set remote destination of repo`
 * `ipvc branch # status`
 * `ipvc branch create [--from-commit <hash>] <name>`
@@ -153,7 +153,7 @@ Note: commands not yet implemented are "commented" out
 * Uses Python 3.6, with go-ipfs as the IPFS server
 * Keeps track of the current state of the workspace, the staging area and the head of each branch. The workspace state is updated before every IPVC command is carried out
 * Leverages the IPFS mutable files system (MFS) for easy book-keeping of repositories and branches and commits
-* Stores repositories and branches as folder and subfolders on the MFS as well as global settings
+* Stores repositories and branches as folder and subfolders on the MFS as well as other settings
 * The refs to workspace, staging area and head of each branch is stored as subfolders within each branch
 * Each ref has a `bundle` subfolder which contains the reference to the actual file hierarchy and metadata which contains the timestamps and permissions of the files (this is not currently stored in the IPFS files ipld format)
 * Individual commit objects are stored as folders where there are links to the parent commit and the repository ref, as well as a metadata file with author information and a timestamp
@@ -164,7 +164,6 @@ In no particular order of importance
 ### Features
 * Downloading branches from other people (git pull)
 * Branch rewrite, similar to rebase -i
-* Publishing to IPNS
 * Export/import from/to git/mercurial
 * Fix handling of file permissions, so that such changes can be seen and added
 * Tags
@@ -172,6 +171,7 @@ In no particular order of importance
 * Picking lines when adding to stage, similar to git's `git add -p`
 * Virtual repos (in IPFS/MFS only, not on the filesystem)
 * Partial branch checkout
+* For large read-only files, link to IPFS fs mount?
 * Encryption of data/commits?
 * Issues, pull requests, discussions etc via pubsub and CRDTs
 * Equivalent of ignore file
@@ -180,19 +180,21 @@ In no particular order of importance
 
 ### Other
 * Optimize! Currently things are way too slow
-* Use aiohttp for async data transfer between ipfs and files
+* Use aiohttp for async data transfer between ipfs and files for progress information
+  (also for pinnig)
 
 ## Testing
 There are two levels of tests, in pytest, and a command line test.
 
 To run pytest, run
-> python3 -m pytest -s
+> python3 -m pytest -s -x
 in the ipvc folder
 
-To run the command line tests, create an empty folder and from it, run
-> {path to ipvc}/tests/test_cli.sh
+Integration tests recorded in the CLI itself can be run separately by
+> python3 -m pytest -x -s ipvc/tests/test_integration.py [--name <name>]
+For more information, read test_integration.py
 
-In both cases, make sure that ipfs is running
+Make sure that ipfs is running on standard port.
 
 ## Release / PyPI
 
