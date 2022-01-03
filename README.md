@@ -1,3 +1,5 @@
+IMPORTANT: this project is not active and further development is not considered at this time, but it may serve as inspiration for future implementations.
+
 # Inter-Planetary Version Control (System)
 
 IPVC is a distributed version control system similar to git, but built on IPFS (Inter-Planetary File System). It is suitable for any kind of data, not only human readable content. It is also particularly suitable for versioning large files. The underlying concepts are heavily influenced by git and [gitless](gitless.com).
