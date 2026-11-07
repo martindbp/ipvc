@@ -291,7 +291,7 @@ class CommonAPI:
             try:
                 Path(path).relative_to(fs_add_path_relative)
                 metadata_files.add(path)
-            except:
+            except ValueError:
                 pass
         if fs_add_path.is_file():
             fs_add_files = set([str(fs_add_path_relative)])
